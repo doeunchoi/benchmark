@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TVING 광고 상품별 VTR/CTR 대시보드</title>
+<style>
+  :root{
+    --bg:#F5F6F8; --panel:#FFFFFF; --panel2:#F0F2F5; --line:#E6E8EC; --line2:#D4D8DE;
+    --text:#1A1C20; --text2:#5C6370; --text3:#9098A3; --accent:#FF153C;
+    --gen:#3B6FE0; --gen-soft:#EAF0FE; --kbo:#E0683B; --kbo-soft:#FDEEE8;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text);
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+       line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:980px; margin:0 auto; padding:32px 20px 64px;}
+  h1{font-size:23px; font-weight:700; margin:0 0 4px; letter-spacing:-0.01em;}
+  .sub{font-size:13px; color:var(--text2); margin:0 0 24px;}
+  h2{font-size:16px; font-weight:600; margin:0 0 4px;}
+  .note{font-size:13px; color:var(--text2); margin:0 0 12px;}
+  /* dropzone */
+  #drop{border:1.5px dashed var(--line2); border-radius:14px; padding:44px 24px; text-align:center;
+        cursor:pointer; transition:.15s; background:var(--panel);}
+  #drop:hover,#drop.over{border-color:var(--accent); background:var(--kbo-soft);}
+  #drop .big{font-size:15px; font-weight:600; margin-bottom:6px;}
+  #drop .small{font-size:13px; color:var(--text3);}
+  #drop .small b{color:var(--accent);}
+  .hidden{display:none !important;}
+  /* group cards */
+  .group{border-radius:16px; padding:20px 22px 6px; margin-bottom:24px; border:1px solid var(--line);
+         background:var(--panel);}
+  .group.gen{border-top:4px solid var(--gen);}
+  .group.kbo{border-top:4px solid var(--kbo);}
+  .ghead{display:flex; align-items:center; gap:10px; margin-bottom:4px;}
+  .ghead h2{margin:0; font-size:18px;}
+  .gpill{font-size:12px; font-weight:700; padding:3px 11px; border-radius:999px;}
+  .gpill.gen{background:var(--gen-soft); color:var(--gen);}
+  .gpill.kbo{background:var(--kbo-soft); color:var(--kbo);}
+  .gdesc{font-size:12px; color:var(--text3); margin:0 0 18px;}
+  .subhead{font-size:14px; font-weight:600; margin:6px 0 4px; display:flex; align-items:center; gap:7px;}
+  /* table */
+  .tblwrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px; margin-bottom:22px;}
+  table{border-collapse:collapse; width:100%; font-size:13px; min-width:460px; background:var(--panel);}
+  th{padding:11px 14px; text-align:left; font-weight:600; color:var(--text2); font-size:12px;
+     border-bottom:1px solid var(--line2); background:var(--panel2);}
+  th.num,td.num{text-align:right;}
+  td{padding:10px 14px; border-bottom:1px solid var(--line);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover td{background:var(--panel2);}
+  .pname{font-weight:600;}
+  .vtag{font-size:12px; color:var(--text3);}
+  .chip{display:inline-block; min-width:58px; text-align:center; padding:3px 9px;
+        border-radius:7px; font-size:12px; font-weight:600;}
+  .sharebar{display:inline-block; position:relative; min-width:64px; text-align:right;
+            padding:3px 9px; border-radius:7px; font-size:12px; font-weight:600; color:var(--text);
+            background:linear-gradient(to right, var(--gen-soft) var(--w), transparent var(--w));}
+  .group.kbo .sharebar{background:linear-gradient(to right, var(--kbo-soft) var(--w), transparent var(--w));}
+  .foot{font-size:12px; color:var(--text2); line-height:1.7; margin:0;
+        border-top:1px solid var(--line); padding-top:16px;}
+  .foot b{color:var(--text);}
+  .err{color:var(--accent); font-size:13px; margin-top:12px;}
+  .reset{font-size:12px; color:var(--text3); cursor:pointer; text-decoration:underline; margin-left:auto;}
+  .badge{display:inline-block; font-size:11px; padding:2px 8px; border-radius:6px;
+         background:var(--panel2); color:var(--text2); margin-left:8px;}
+  .adminbar{display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+            background:#FFF7F8; border:1px solid #FBD0D7; border-radius:10px;
+            padding:12px 16px; margin-bottom:24px;}
+  .internal{font-size:12px; color:var(--accent); font-weight:600; letter-spacing:-0.01em;}
+  .exportbtn{font-size:13px; font-weight:600; padding:9px 18px; border-radius:8px;
+             background:var(--accent); color:#fff; border:none; cursor:pointer;
+             margin-left:auto; transition:.12s;}
+  .exportbtn:hover{filter:brightness(1.05);}
+  .exportbtn:disabled{opacity:.5; cursor:default;}
+  /* 사용법 가이드 */
+  .guide{background:var(--panel); border:1px solid var(--line); border-radius:12px; margin-bottom:20px; overflow:hidden;}
+  .guide summary{cursor:pointer; padding:14px 18px; font-size:14px; font-weight:600; list-style:none;}
+  .guide summary::-webkit-details-marker{display:none;}
+  .guide summary:hover{background:var(--panel2);}
+  .guidebody{padding:4px 20px 16px; font-size:13px; color:var(--text2);}
+  .guidebody b{color:var(--text);}
+  .guidebody ul{margin:4px 0 14px; padding-left:18px;}
+  .guidebody li{margin:3px 0;}
+  .gnote{font-size:12px; color:var(--text3); background:var(--panel2); padding:8px 12px; border-radius:8px;}
+  /* 업종 비중 차트 */
+  .chartcard{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px 22px; margin-bottom:24px;}
+  .chartbody{display:flex; gap:24px; align-items:center; flex-wrap:wrap; margin-top:8px;}
+  .donut{flex-shrink:0;}
+  .lg{flex:1; min-width:240px; display:grid; grid-template-columns:1fr 1fr; gap:3px 16px;}
+  .lgi{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text2);}
+  .lgi b{margin-left:auto; color:var(--text); font-weight:600;}
+  .dot{width:10px; height:10px; border-radius:3px; flex-shrink:0;}
+  /* 템플릿 토글 */
+  th.exp,td.exp{width:34px; padding-left:10px; padding-right:0;}
+  .expbtn{border:none; background:var(--panel2); color:var(--text2); cursor:pointer; font-size:11px;
+          border-radius:6px; padding:3px 6px; display:inline-flex; align-items:center; gap:3px; transition:.12s;}
+  .expbtn:hover{background:var(--line2);}
+  .expbtn.open{background:var(--gen-soft); color:var(--gen);}
+  .expbtn .cnt{font-weight:700;}
+  .tplrow td{background:var(--panel2); padding:0;}
+  .tplbox{padding:12px 16px 14px;}
+  .tpltitle{font-size:12px; font-weight:600; color:var(--text2); margin-bottom:6px;}
+  .tpllist{margin:0; padding-left:18px; columns:2; font-size:12px; color:var(--text2); line-height:1.7;}
+  .tpllist li{break-inside:avoid;}
+  .mono{font-variant-numeric:tabular-nums; font-size:12px; color:var(--text);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📊 TVING 광고 상품별 VTR / CTR 대시보드</h1>
+  <p class="sub">업종별/캠페인 템플릿별 집행 데이터를 업로드하면 상품·스킵·초수 기준으로 자동 정리합니다.</p>
+
+  <div id="drop">
+    <div class="big">📁 CSV 파일을 여기에 끌어다 놓으세요</div>
+    <div class="small">또는 <b>클릭해서 선택</b> · 보너스·하우스·테스트 자동 제외</div>
+    <input type="file" id="file" accept=".csv" class="hidden">
+  </div>
+  <div id="err" class="err"></div>
+
+  <div id="dash" class="hidden">
+    <div class="adminbar">
+      <span class="internal">🔒 내부 검토용 — 이 화면은 외부에 공유하지 마세요</span>
+      <button id="export" class="exportbtn">⬇ 공개용 HTML 내보내기</button>
+      <span class="reset" id="reset">다른 파일 올리기</span>
+    </div>
+
+    <details class="guide">
+      <summary>📋 대시보드 사용법 · raw 데이터 추출 방법</summary>
+      <div class="guidebody">
+        <p><b>1) raw 데이터 추출 (TAS 리포트 → 일반 데이터)</b></p>
+        <ul>
+          <li>기간: 분석할 월의 1일~말일 (예: May 01, 2026 ~ May 31, 2026), 표준시 <b>Asia/Seoul</b></li>
+          <li>그룹: <b>캠페인 템플릿</b>, <b>디바이스 OS</b>, <b>카테고리</b>, <b>인벤토리 종류</b> 체크</li>
+          <li>지표: <b>매체 집행 금액</b>, <b>노출수</b>, <b>클릭수</b>, <b>CTR</b>, <b>영상 시청 완료</b>, <b>VTR</b> 체크</li>
+          <li>시간: <b>월</b> 체크</li>
+          <li>CSV로 내려받아 이 페이지에 업로드</li>
+        </ul>
+        <p><b>2) 자동 집계 규칙</b></p>
+        <ul>
+          <li><b>하우스·보너스 물량은 모두 집계에서 제외</b>됩니다 (테스트·빈 행도 제외).</li>
+          <li>iOS·Android는 <b>Mobile</b>로 합산, MACOS는 PC로 분류.</li>
+          <li>노출 1만 미만 항목은 통계 신뢰도가 낮아 제외됩니다.</li>
+          <li>VTR·CTR은 노출 가중 합산 기준, CPM·CPC·CPV는 내부 전용(공개 미포함).</li>
+        </ul>
+        <p class="gnote">※ 공개용 HTML에는 금액·노출수·CPM/CPC/CPV·템플릿 원문이 포함되지 않습니다.</p>
+      </div>
+    </details>
+
+    <section id="catchart" class="chartcard">
+      <div class="subhead">🥧 업종별 집행 비중 <span class="vtag">(내부 전용)</span></div>
+      <div class="chartbody"></div>
+    </section>
+
+    <section class="group gen">
+      <div class="ghead">
+        <h2>일반형 광고</h2>
+        <span class="gpill gen">GENERAL</span>
+      </div>
+      <p class="gdesc">TOP20 · 베이직 인스트림 · 시청데모 · 프라임타임 · CTV 프리미어 · 아웃스트림 · 일시정지 · 이미지 배너 · 스플래시</p>
+
+      <div class="subhead">🎬 광고 상품별 효율 <span class="vtag">(VTR / CTR · VTR은 재생 완료 기준)</span></div>
+      <div class="tblwrap"><table id="tgen"></table></div>
+
+      <div id="dgenwrap">
+        <div class="subhead">📱 디바이스별 효율</div>
+        <p class="note">노출 비중은 일반형 광고 내 기준 · Mobile = iOS + Android 합산</p>
+        <div class="tblwrap"><table id="dgen"></table></div>
+      </div>
+    </section>
+
+    <section class="group kbo">
+      <div class="ghead">
+        <h2>KBO 광고</h2>
+        <span class="gpill kbo">⚾ KBO</span>
+      </div>
+      <p class="gdesc">노출 보장 · 노출 보장(제한) · 1주 집중 · 구단 타겟팅 · 7이닝 · 퍼스트뷰(영상) · 퍼스트뷰(DA)</p>
+
+      <div class="subhead">🎬 광고 상품별 효율 <span class="vtag">(VTR / CTR · VTR은 재생 완료 기준)</span></div>
+      <div class="tblwrap"><table id="tkbo"></table></div>
+
+      <div id="dkbowrap">
+        <div class="subhead">📱 디바이스별 효율</div>
+        <p class="note">노출 비중은 KBO 광고 내 기준 · Mobile = iOS + Android 합산</p>
+        <div class="tblwrap"><table id="dkbo"></table></div>
+      </div>
+    </section>
+
+    <div id="otherwrap" class="hidden">
+      <div class="subhead">📦 기타 <span class="badge">표준 분류 외</span></div>
+      <p class="note">표준 상품 분류에 속하지 않는 항목입니다. 행 왼쪽 ▸ 버튼으로 포함된 캠페인 템플릿을 확인하고, 새 상품이면 분류 규칙에 반영하세요.</p>
+      <div class="tblwrap"><table id="tother"></table></div>
+    </div>
+
+    <p class="foot" id="foot"></p>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   분류 / 집계 로직  (Python 파이프라인과 동일 규칙)
+   ============================================================ */
+
+// 컬럼 후보 (한글 헤더 변형 대응)
+const COL = {
+  category: ["카테고리","업종","category"],
+  template: ["캠페인 템플릿","캠페인템플릿","템플릿","template"],
+  os:       ["디바이스 OS","디바이스OS","OS","device","디바이스"],
+  imp:      ["노출수","노출","impressions"],
+  clk:      ["클릭수","클릭","clicks"],
+  vcv:      ["영상 시청 완료","영상시청완료","재생 완료","completed","video_completions"]
+};
+
+// 디바이스 OS → 표시 그룹 (IOS+ANDROID=Mobile, MACOS는 PC로)
+function deviceOf(os){
+  const o = (os||"").trim().toUpperCase();
+  if(o==="IOS" || o==="ANDROID") return "Mobile";
+  if(o==="PC" || o==="MACOS") return "PC";
+  if(o==="CTV") return "CTV";
+  return null; // VERSATILE 등 기타/미상은 디바이스 집계에서 제외
+}
+const DEVICE_ORDER = ["Mobile","CTV","PC"];
+
+function pickCol(headers, cands){
+  for(const c of cands){
+    const hit = headers.find(h => h.trim() === c);
+    if(hit) return hit;
+  }
+  // loose contains match
+  for(const c of cands){
+    const hit = headers.find(h => h.replace(/\s/g,"").includes(c.replace(/\s/g,"")));
+    if(hit) return hit;
+  }
+  return null;
+}
+
+function toNum(s){
+  if(s==null) return 0;
+  const t = String(s).trim();
+  if(t==="" || t==="-" || t==="- ") return 0;
+  const v = parseFloat(t.replace(/,/g,""));
+  return isNaN(v) ? 0 : v;
+}
+
+function isExcluded(n){
+  if(!n || !n.trim()) return true;
+  if(n.includes("보너스") || n.includes("하우스")) return true;
+  const U = n.toUpperCase();
+  if(U.includes("CJOY") || U.includes("TEST") || n.includes("test") || U.includes("MMP")) return true;
+  return false;
+}
+
+// 상품 분류 → {grp, prod}
+function classify(n){
+  const s = n.replace(/\s/g,"");
+  const U = s.toUpperCase();
+  if(n.includes("KBO")){
+    const G = "KBO 광고";
+    if(s.includes("일시정지")) return {grp:"일반형 광고", prod:"일시정지"};
+    if(s.includes("이미지배너")) return {grp:"일반형 광고", prod:"이미지 배너"};
+    if(s.includes("노출보장") && s.includes("제한")) return {grp:G, prod:"노출 보장(제한)"};
+    if(s.includes("노출보장")) return {grp:G, prod:"노출 보장"};
+    if(s.includes("구단타겟")) return {grp:G, prod:"구단 타겟팅"};
+    if(s.includes("1주집중")) return {grp:G, prod:"1주 집중"};
+    if(s.includes("7이닝")) return {grp:G, prod:"7이닝"};
+    if(s.includes("퍼스트뷰")){
+      return (n.includes("DA") || n.includes("홈")) ? {grp:G, prod:"퍼스트뷰(DA)"} : {grp:G, prod:"퍼스트뷰(영상)"};
+    }
+    return {grp:G, prod:"기타"};
+  }
+  if(U.includes("CTVPREMIER")) return {grp:"일반형 광고", prod:"CTV 프리미어"};
+  if(U.includes("GOLF") || n.includes("오디언스") || U.includes("KLPGA") || U.includes("KPGA"))
+    return {grp:"기타", prod:"기타"};
+  const G = "일반형 광고";
+  if(s.includes("스플래시")) return {grp:G, prod:"스플래시"};
+  if(s.includes("일시정지")) return {grp:G, prod:"일시정지"};
+  if(s.includes("아웃스트림")) return {grp:G, prod:"아웃스트림"};
+  if(s.includes("이미지배너") || s.includes("확장형이미지배너")) return {grp:G, prod:"이미지 배너"};
+  if(U.includes("TOP20")) return {grp:G, prod:"TOP20"};
+  if(U.includes("PRIME")) return {grp:G, prod:"프라임타임"};
+  if(s.includes("시청데모")) return {grp:G, prod:"시청데모"};
+  const basicKeys = ["관심사","세그먼트","프리롤","IP관","하트시그널","유미","취사병","꽃청춘","ENM","뉴스채널","OB맥주","사용자목록"];
+  if(basicKeys.some(k=>n.includes(k))) return {grp:G, prod:"베이직 인스트림"};
+  if(s.includes("베이직") || s.includes("인스트림")) return {grp:G, prod:"베이직 인스트림"};
+  return {grp:"기타", prod:"기타"};
+}
+
+// 비영상 포맷 (VTR N/A)
+const NO_VTR = new Set(["스플래시","일시정지","이미지 배너","퍼스트뷰(DA)"]);
+// KBO 상품
+const KBO_PRODS = new Set(["노출 보장","노출 보장(제한)","구단 타겟팅","1주 집중","7이닝","퍼스트뷰(영상)","퍼스트뷰(DA)"]);
+// 일반형 단일 구성 (스킵/초수 분리 없음 → '-')
+const GEN_SINGLE = new Set(["아웃스트림","일시정지","이미지 배너","스플래시"]);
+// KBO 중 초수 분리 없는 상품 → '-'
+const KBO_NOSPLIT = new Set(["7이닝","퍼스트뷰(DA)"]);
+
+// 구분(variant) 결정
+function variantOf(n, prod){
+  const s = n.replace(/\s/g,"");
+  const secM = n.match(/(\d+)\s*초/);
+  const sec = secM ? secM[1] : null;
+  if(KBO_PRODS.has(prod)){
+    if(KBO_NOSPLIT.has(prod)) return "-";
+    return sec ? (sec+"초") : "-";
+  }
+  if(GEN_SINGLE.has(prod)) return "-";
+  if(s.includes("논스킵")) return "논스킵 " + (sec ? sec+"초" : "(초수 미표기)");
+  if(s.includes("스킵")) return "스킵";
+  return "구분 미표기";
+}
+
+// variant 정렬 순서
+function vOrder(v){
+  const o = {"논스킵 15초":0,"15초":0,"논스킵 30초":1,"30초":1,"논스킵 (초수 미표기)":2,"스킵":3,"-":4,"구분 미표기":5};
+  return (v in o) ? o[v] : 9;
+}
+
+// 상품 출력 순서
+const ORDER_GEN = ["TOP20","베이직 인스트림","시청데모","프라임타임","CTV 프리미어","아웃스트림","일시정지","이미지 배너","스플래시"];
+const ORDER_KBO = ["노출 보장","노출 보장(제한)","1주 집중","구단 타겟팅","7이닝","퍼스트뷰(영상)","퍼스트뷰(DA)"];
+
+const MIN_IMP = 10000; // 노출 1만 미만 제외
+
+/* ============================================================
+   CSV 파싱 (따옴표 처리 포함)
+   ============================================================ */
+function parseCSV(text){
+  text = text.replace(/^\uFEFF/, ""); // BOM 제거
+  const rows = [];
+  let row = [], field = "", inQ = false;
+  for(let i=0;i<text.length;i++){
+    const ch = text[i];
+    if(inQ){
+      if(ch === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; }
+        else inQ = false;
+      } else field += ch;
+    } else {
+      if(ch === '"') inQ = true;
+      else if(ch === ','){ row.push(field); field=""; }
+      else if(ch === '\n'){ row.push(field); rows.push(row); row=[]; field=""; }
+      else if(ch === '\r'){ /* skip */ }
+      else field += ch;
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r => r.length>1 || (r.length===1 && r[0].trim()!==""));
+}
+
+/* ============================================================
+   메인 처리
+   ============================================================ */
+function process(text){
+  const raw = parseCSV(text);
+  if(raw.length < 2) throw new Error("데이터 행이 없습니다.");
+  const headers = raw[0].map(h=>h.trim());
+  const cCat = pickCol(headers, COL.category);
+  const cTpl = pickCol(headers, COL.template);
+  const cOS  = pickCol(headers, COL.os);
+  const cImp = pickCol(headers, COL.imp);
+  const cClk = pickCol(headers, COL.clk);
+  const cVcv = pickCol(headers, COL.vcv);
+  const cSpend = pickCol(headers, ["매체 집행 금액","매체집행금액","집행 금액","spend","cost"]);
+  const missing = [];
+  if(!cTpl) missing.push("캠페인 템플릿");
+  if(!cImp) missing.push("노출수");
+  if(!cClk) missing.push("클릭수");
+  if(!cVcv) missing.push("영상 시청 완료");
+  if(missing.length) throw new Error("필요한 열을 찾을 수 없습니다: " + missing.join(", "));
+
+  const idx = {}; headers.forEach((h,i)=>idx[h]=i);
+  const data = raw.slice(1).map(r=>{
+    const o = {};
+    headers.forEach((h,i)=> o[h] = r[i]!==undefined ? r[i] : "");
+    return o;
+  });
+
+  // 집계: (grp, prod, variant)
+  const agg = {};      // key -> {grp,prod,variant,imp,clk,vcv}
+  const catSpend = {}; // 미사용(집행금액 표기 안 함) — 편차 계산용 버킷만 사용
+  // 업종 편차용: (prod|variant) -> [{vtr,ctr,imp,cat}]
+  const buckets = {};
+
+  let totalKept = 0, excluded = 0;
+
+  // 업종 집행 비중용 (내부 차트 전용 — 공개 미포함)
+  const catSp = {};
+  let grandSp = 0;
+
+  // 디바이스 집계: grp -> device -> {imp,clk,vcv,sp}
+  const dev = { "일반형 광고":{}, "KBO 광고":{}, "전체":{} };
+  function devAdd(g, dv, imp, clk, vcv, sp){
+    const t = dev[g]; if(!t[dv]) t[dv]={imp:0,clk:0,vcv:0,sp:0};
+    t[dv].imp+=imp; t[dv].clk+=clk; t[dv].vcv+=vcv; t[dv].sp+=sp;
+  }
+
+  for(const d of data){
+    const n = (d[cTpl]||"").trim();
+    if(isExcluded(n)){ excluded++; continue; }
+    const {grp, prod} = classify(n);
+    const v = variantOf(n, prod);
+    const imp = toNum(d[cImp]), clk = toNum(d[cClk]), vcv = toNum(d[cVcv]);
+    const key = grp+"||"+prod+"||"+v;
+    if(!agg[key]) agg[key] = {grp, prod, variant:v, imp:0, clk:0, vcv:0, sp:0, tpls:{}};
+    agg[key].imp += imp; agg[key].clk += clk; agg[key].vcv += vcv;
+    agg[key].sp += (cSpend ? toNum(d[cSpend]) : 0);
+    // 원본 템플릿명 수집 (중복은 노출 합산)
+    agg[key].tpls[n] = (agg[key].tpls[n]||0) + imp;
+    totalKept++;
+
+    // 업종 집행 비중 (내부 차트용)
+    if(cCat){
+      const sp = cSpend ? toNum(d[cSpend]) : imp;
+      catSp[d[cCat]||"(미상)"] = (catSp[d[cCat]||"(미상)"]||0) + sp;
+      grandSp += sp;
+    }
+
+    // 디바이스 집계 (OS 컬럼이 있을 때만)
+    if(cOS){
+      const dv = deviceOf(d[cOS]);
+      if(dv){
+        const sp = cSpend ? toNum(d[cSpend]) : imp; // 집행금액 없으면 노출로 비중 추정
+        const gKey = (grp==="KBO 광고") ? "KBO 광고" : "일반형 광고";
+        devAdd(gKey, dv, imp, clk, vcv, sp);
+        devAdd("전체", dv, imp, clk, vcv, sp);
+      }
+    }
+
+    if(imp >= MIN_IMP){
+      const bk = prod+"||"+v;
+      (buckets[bk] = buckets[bk] || []).push({
+        cat: d[cCat]||"", vtr: vcv/imp*100, ctr: clk/imp*100
+      });
+    }
+  }
+
+  // 결과 표 데이터
+  function rowsFor(group, order){
+    const out = [];
+    const prodsInData = [...new Set(Object.values(agg).filter(a=>a.grp===group).map(a=>a.prod))];
+    const ordered = [...order.filter(p=>prodsInData.includes(p)),
+                     ...prodsInData.filter(p=>!order.includes(p))];
+    for(const prod of ordered){
+      const vars = Object.values(agg)
+        .filter(a=>a.grp===group && a.prod===prod && a.imp>=MIN_IMP)
+        .sort((a,b)=>vOrder(a.variant)-vOrder(b.variant));
+      for(const a of vars){
+        const tplList = Object.entries(a.tpls)
+          .sort((x,y)=>y[1]-x[1])      // 노출 많은 순
+          .map(x=>x[0]);
+        out.push({
+          prod, variant:a.variant,
+          vtr: NO_VTR.has(prod) ? null : (a.vcv/a.imp*100),
+          ctr: a.clk/a.imp*100,
+          cpm: a.sp>0 ? a.sp/a.imp*1000 : null,                 // 노출 1,000당
+          cpc: (a.sp>0 && a.clk>0) ? a.sp/a.clk : null,         // 클릭당
+          cpv: (a.sp>0 && a.vcv>0 && !NO_VTR.has(prod)) ? a.sp/a.vcv : null, // 영상완료당
+          tpls: tplList
+        });
+      }
+    }
+    return out;
+  }
+
+  // 업종 편차 범위 (같은 상품·구분 버킷, 업종 4개 이상)
+  const spread = [];
+  for(const [bk, arr] of Object.entries(buckets)){
+    if(arr.length < 4) continue;
+    const vtrs = arr.map(x=>x.vtr).filter(x=>!isNaN(x));
+    const [p, v] = bk.split("||");
+    if(NO_VTR.has(p)) continue;
+    const mn = Math.min(...vtrs), mx = Math.max(...vtrs);
+    spread.push({prod:p, variant:v, n:arr.length, min:mn, max:mx, range:mx-mn});
+  }
+  spread.sort((a,b)=>b.n-a.n);
+
+  // 디바이스 결과: 그룹별 노출 비중(%) + VTR + CTR
+  function deviceRows(gKey){
+    const t = dev[gKey];
+    const totalImp = DEVICE_ORDER.reduce((s,dv)=> s + (t[dv]?t[dv].imp:0), 0);
+    const out = [];
+    for(const dv of DEVICE_ORDER){
+      const a = t[dv];
+      if(!a || a.imp < MIN_IMP) continue;
+      out.push({
+        device: dv,
+        share: totalImp ? a.imp/totalImp*100 : 0,  // 노출 비중
+        vtr: a.vcv/a.imp*100,
+        ctr: a.clk/a.imp*100
+      });
+    }
+    return out;
+  }
+
+  // 업종 비중 배열 (내림차순)
+  const catShare = Object.entries(catSp)
+    .map(([c,sp])=>({cat:c, share: grandSp? sp/grandSp*100 : 0}))
+    .sort((a,b)=>b.share-a.share);
+
+  return {
+    gen: rowsFor("일반형 광고", ORDER_GEN),
+    kbo: rowsFor("KBO 광고", ORDER_KBO),
+    other: rowsFor("기타", []),
+    catShare,
+    devGen: deviceRows("일반형 광고"),
+    devKbo: deviceRows("KBO 광고"),
+    hasDevice: !!cOS,
+    totalKept, excluded, spread
+  };
+}
+
+/* ============================================================
+   렌더링
+   ============================================================ */
+function vtrColor(v){
+  if(v===null) return null;
+  // 라이트 테마: 옅은 배경 + 진한 글자
+  const ramp=["#FBE3E3","#FCEBD2","#DEF3E8","#C3EAD7","#A6E1C5"];
+  const fg  =["#A12626","#8A5410","#1B6E52","#13694A","#0C5238"];
+  let idx; if(v<50)idx=0; else if(v<80)idx=1; else if(v<90)idx=2; else if(v<95)idx=3; else idx=4;
+  return {bg:ramp[idx], fg:fg[idx]};
+}
+function ctrColor(v){
+  const ramp=["#E9F0FB","#DAE7F8","#C2D8F2","#A6C6EC","#88B3E5"];
+  const fg  =["#2B5BA8","#27559C","#1F4C8E","#1A4380","#123569"];
+  let t=Math.min(v/0.5,1); let idx=Math.min(Math.floor(t*5),4);
+  return {bg:ramp[idx], fg:fg[idx]};
+}
+function variantLabel(v){
+  if(v==="-") return '<span class="vtag">–</span>';
+  if(v==="구분 미표기") return '<span class="vtag">구분 미표기</span>';
+  if(v==="논스킵 (초수 미표기)") return '<span class="vtag">논스킵 (초수 미표기)</span>';
+  return v;
+}
+function won(v){
+  if(v===null) return '<span class="vtag">–</span>';
+  // 원 단위, 천단위 콤마
+  return Math.round(v).toLocaleString("ko-KR") + "원";
+}
+function tplBlock(rowId, tpls){
+  if(!tpls || !tpls.length) return "";
+  const items = tpls.map(t=>`<li>${escapeHTML(t)}</li>`).join("");
+  return `<tr class="tplrow" id="${rowId}" hidden><td colspan="7">`
+    + `<div class="tplbox"><div class="tpltitle">포함된 캠페인 템플릿 (${tpls.length}개)</div><ul class="tpllist">${items}</ul></div>`
+    + `</td></tr>`;
+}
+function escapeHTML(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function renderTable(el, rows, internal){
+  if(!rows.length){ el.closest(".tblwrap").style.display="none"; return; }
+  el.closest(".tblwrap").style.display="";
+  const cpHdr = internal
+    ? "<th class='num'>CPM</th><th class='num'>CPC</th><th class='num'>CPV</th>"
+    : "";
+  const expandHdr = internal ? "<th class='exp'></th>" : "";
+  let h="<thead><tr>"+expandHdr+"<th>상품</th><th>구분</th><th class='num'>VTR</th><th class='num'>CTR</th>"+cpHdr+"</tr></thead><tbody>";
+  let prev=null, idc=0;
+  const base = el.id || "t";
+  for(const r of rows){
+    const showName = r.prod!==prev; prev=r.prod;
+    let vcell;
+    if(r.vtr===null) vcell = '<span class="vtag">N/A</span>';
+    else { const c=vtrColor(r.vtr); vcell = `<span class="chip" style="background:${c.bg};color:${c.fg};">${r.vtr.toFixed(2)}%</span>`; }
+    const cc=ctrColor(r.ctr);
+    const ccell = `<span class="chip" style="background:${cc.bg};color:${cc.fg};">${r.ctr.toFixed(3)}%</span>`;
+
+    let expCell="", cpCells="";
+    if(internal){
+      const rid = base+"_tpl_"+(idc++);
+      const cnt = r.tpls ? r.tpls.length : 0;
+      expCell = cnt
+        ? `<td class="exp"><button class="expbtn" data-target="${rid}" aria-label="템플릿 보기">▸<span class="cnt">${cnt}</span></button></td>`
+        : `<td class="exp"></td>`;
+      cpCells = `<td class="num mono">${won(r.cpm)}</td><td class="num mono">${won(r.cpc)}</td><td class="num mono">${won(r.cpv)}</td>`;
+    }
+    h += `<tr>${expCell}<td class="pname">${showName?r.prod:""}</td><td>${variantLabel(r.variant)}</td><td class="num">${vcell}</td><td class="num">${ccell}</td>${cpCells}</tr>`;
+    if(internal && r.tpls && r.tpls.length){
+      h += tplBlock(base+"_tpl_"+(idc-1), r.tpls);
+    }
+  }
+  el.innerHTML = h + "</tbody>";
+  // 토글 바인딩
+  if(internal){
+    el.querySelectorAll(".expbtn").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const tr = el.querySelector("#"+b.dataset.target);
+        if(!tr) return;
+        const open = tr.hidden;
+        tr.hidden = !open;
+        b.classList.toggle("open", open);
+      });
+    });
+  }
+}
+
+function buildDeviceTableInner(rows){
+  let h="<thead><tr><th>디바이스</th><th class='num'>노출 비중</th><th class='num'>VTR</th><th class='num'>CTR</th></tr></thead><tbody>";
+  for(const r of rows){
+    const vc=vtrColor(r.vtr), cc=ctrColor(r.ctr);
+    h += `<tr><td class="pname">${r.device}</td>`
+      + `<td class="num"><span class="sharebar" style="--w:${Math.round(r.share)}%;">${r.share.toFixed(1)}%</span></td>`
+      + `<td class="num"><span class="chip" style="background:${vc.bg};color:${vc.fg};">${r.vtr.toFixed(2)}%</span></td>`
+      + `<td class="num"><span class="chip" style="background:${cc.bg};color:${cc.fg};">${r.ctr.toFixed(3)}%</span></td></tr>`;
+  }
+  return h + "</tbody>";
+}
+function buildDeviceHTML(rows){
+  return "<table>" + buildDeviceTableInner(rows) + "</table>";
+}
+function renderDeviceTable(elId, wrapId, rows){
+  const el = document.getElementById(elId);
+  const wrap = document.getElementById(wrapId);
+  if(!rows || !rows.length){ if(wrap) wrap.style.display="none"; return; }
+  if(wrap) wrap.style.display="";
+  el.innerHTML = buildDeviceTableInner(rows);
+}
+
+function renderFoot(res){
+  // 논스킵 계열(VTR이 높은) 버킷의 업종 간 편차폭만 모아 대표값 산정
+  const ranges = res.spread
+    .filter(s => s.range >= 0 && s.max >= 80)
+    .map(s => s.range)
+    .sort((a,b)=>a-b);
+  const foot = document.getElementById("foot");
+  let line;
+  if(ranges.length){
+    const median = ranges[Math.floor(ranges.length/2)];
+    const rep = Math.max(1, Math.round(median));  // 대표 편차폭(중앙값)
+    line = `같은 상품·초수 조건에서는 업종이 달라도 VTR 편차가 대부분 <b>${rep}~${rep+2}%p 수준</b>으로 작아, 업종×상품 매트릭스는 생략했습니다.`;
+  } else {
+    line = `업종×상품 매트릭스는 업종 간 편차가 작아 생략했습니다.`;
+  }
+  foot.innerHTML = line;
+}
+
+let LAST_RESULT = null;
+function show(res){
+  LAST_RESULT = res;
+  renderTable(document.getElementById("tgen"), res.gen, true);
+  renderDeviceTable("dgen","dgenwrap", res.devGen);
+  renderTable(document.getElementById("tkbo"), res.kbo, true);
+  renderDeviceTable("dkbo","dkbowrap", res.devKbo);
+  if(res.other && res.other.length){
+    document.getElementById("otherwrap").classList.remove("hidden");
+    renderTable(document.getElementById("tother"), res.other, true);
+  } else {
+    document.getElementById("otherwrap").classList.add("hidden");
+  }
+  renderCatChart(res.catShare);
+  renderFoot(res);
+  document.getElementById("dash").classList.remove("hidden");
+  document.getElementById("drop").classList.add("hidden");
+  document.getElementById("err").textContent="";
+}
+
+// 업종 집행 비중 도넛 (내부 전용)
+const CAT_PAL=["#3B6FE0","#E0683B","#22A06B","#C9417E","#7B61D9","#D99B17","#5B9BD5","#E0563B",
+  "#46A37A","#B0598E","#8A77E0","#C9A22E","#6FAFE0","#D67A4A","#5FB088","#9E6FB0",
+  "#2E55AC","#A8401F","#1B7A50","#9B2E63","#5C44AC","#A07A12","#4C82C2","#B04A2E"];
+function renderCatChart(catShare){
+  const wrap=document.getElementById("catchart");
+  if(!wrap || !catShare || !catShare.length){ if(wrap) wrap.style.display="none"; return; }
+  wrap.style.display="";
+  // SVG 도넛
+  const size=180, r=70, cx=size/2, cy=size/2, sw=26;
+  let acc=0; const segs=[];
+  catShare.forEach((d,i)=>{
+    const frac=d.share/100; const a0=acc*2*Math.PI-Math.PI/2; acc+=frac; const a1=acc*2*Math.PI-Math.PI/2;
+    const large=frac>0.5?1:0;
+    const x0=cx+r*Math.cos(a0), y0=cy+r*Math.sin(a0), x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1);
+    segs.push(`<path d="M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}" fill="none" stroke="${CAT_PAL[i%CAT_PAL.length]}" stroke-width="${sw}"/>`);
+  });
+  const svg=`<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="업종별 집행 비중">${segs.join("")}</svg>`;
+  const legend=catShare.map((d,i)=>`<span class="lgi"><span class="dot" style="background:${CAT_PAL[i%CAT_PAL.length]}"></span>${escapeHTML(d.cat)}<b>${d.share.toFixed(1)}%</b></span>`).join("");
+  wrap.querySelector(".chartbody").innerHTML = `<div class="donut">${svg}</div><div class="lg">${legend}</div>`;
+}
+
+/* ============================================================
+   파일 입력 핸들링
+   ============================================================ */
+const drop = document.getElementById("drop");
+const fileInput = document.getElementById("file");
+const errEl = document.getElementById("err");
+
+function handleFile(file){
+  if(!file){ return; }
+  if(!/\.csv$/i.test(file.name)){ errEl.textContent="CSV 파일만 업로드할 수 있습니다."; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try { show(process(e.target.result)); }
+    catch(err){ errEl.textContent = "처리 오류: " + err.message; }
+  };
+  reader.onerror = () => errEl.textContent = "파일을 읽을 수 없습니다.";
+  reader.readAsText(file, "UTF-8");
+}
+
+drop.addEventListener("click", ()=>fileInput.click());
+fileInput.addEventListener("change", e=>handleFile(e.target.files[0]));
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault(); drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault(); drop.classList.remove("over");}));
+drop.addEventListener("drop", e=>{
+  const f = e.dataTransfer.files[0]; handleFile(f);
+});
+document.getElementById("reset").addEventListener("click", ()=>{
+  document.getElementById("dash").classList.add("hidden");
+  document.getElementById("drop").classList.remove("hidden");
+  fileInput.value="";
+});
+
+/* ============================================================
+   공개용 HTML 내보내기
+   - 결과 표 + 주석 + 표시 CSS만 포함
+   - 업로드 기능 / classify·process·parseCSV 로직 / 원본 CSV
+     / 노출수·집행금액·행수는 일절 포함하지 않음
+   ============================================================ */
+function buildPublicHTML(res){
+  // 공개용 표는 internal=false 로 새로 렌더 (CPM/CPC/CPV·템플릿·금액 미포함)
+  const tmp = document.createElement("table");
+  function cleanTable(rows){
+    if(!rows || !rows.length) return "";
+    // closest() 의존 없이 렌더하기 위해 임시 래퍼 사용
+    const wrap = document.createElement("div"); wrap.className="tblwrap";
+    const t = document.createElement("table"); wrap.appendChild(t);
+    renderTable(t, rows, false);   // ★ 공개: 내부 컬럼 제외
+    return t.outerHTML;
+  }
+  const genHTML = cleanTable(res.gen);
+  const kboHTML = cleanTable(res.kbo);
+  const dgenHTML = (res.devGen&&res.devGen.length) ? buildDeviceHTML(res.devGen) : "";
+  const dkboHTML = (res.devKbo&&res.devKbo.length) ? buildDeviceHTML(res.devKbo) : "";
+  const footHTML = document.getElementById("foot").innerHTML;
+  const today = new Date().toISOString().slice(0,10);
+
+  // 공개용 CSS (라이트 테마, 관리자 전용 요소 제외)
+  const css = `
+  :root{--bg:#F5F6F8;--panel:#FFFFFF;--panel2:#F0F2F5;--line:#E6E8EC;--line2:#D4D8DE;
+    --text:#1A1C20;--text2:#5C6370;--text3:#9098A3;--accent:#FF153C;
+    --gen:#3B6FE0;--gen-soft:#EAF0FE;--kbo:#E0683B;--kbo-soft:#FDEEE8;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:980px;margin:0 auto;padding:32px 20px 64px;}
+  h1{font-size:23px;font-weight:700;margin:0 0 4px;letter-spacing:-0.01em;}
+  .sub{font-size:13px;color:var(--text2);margin:0 0 6px;}
+  .stamp{font-size:12px;color:var(--text3);margin:0 0 24px;}
+  .group{border-radius:16px;padding:20px 22px 6px;margin-bottom:24px;border:1px solid var(--line);background:var(--panel);}
+  .group.gen{border-top:4px solid var(--gen);}
+  .group.kbo{border-top:4px solid var(--kbo);}
+  .ghead{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+  .ghead h2{margin:0;font-size:18px;font-weight:600;}
+  .gpill{font-size:12px;font-weight:700;padding:3px 11px;border-radius:999px;}
+  .gpill.gen{background:var(--gen-soft);color:var(--gen);}
+  .gpill.kbo{background:var(--kbo-soft);color:var(--kbo);}
+  .gdesc{font-size:12px;color:var(--text3);margin:0 0 18px;}
+  .subhead{font-size:14px;font-weight:600;margin:6px 0 4px;display:flex;align-items:center;gap:7px;}
+  .note{font-size:13px;color:var(--text2);margin:0 0 12px;}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:22px;}
+  table{border-collapse:collapse;width:100%;font-size:13px;min-width:460px;background:var(--panel);}
+  th{padding:11px 14px;text-align:left;font-weight:600;color:var(--text2);font-size:12px;
+    border-bottom:1px solid var(--line2);background:var(--panel2);}
+  th.num,td.num{text-align:right;}
+  td{padding:10px 14px;border-bottom:1px solid var(--line);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover td{background:var(--panel2);}
+  .pname{font-weight:600;}
+  .vtag{font-size:12px;color:var(--text3);}
+  .chip{display:inline-block;min-width:58px;text-align:center;padding:3px 9px;
+    border-radius:7px;font-size:12px;font-weight:600;}
+  .sharebar{display:inline-block;min-width:64px;text-align:right;padding:3px 9px;border-radius:7px;
+    font-size:12px;font-weight:600;color:var(--text);
+    background:linear-gradient(to right,var(--gen-soft) var(--w),transparent var(--w));}
+  .group.kbo .sharebar{background:linear-gradient(to right,var(--kbo-soft) var(--w),transparent var(--w));}
+  .foot{font-size:12px;color:var(--text2);line-height:1.7;margin:0;
+    border-top:1px solid var(--line);padding-top:16px;}
+  .foot b{color:var(--text);}`;
+
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TVING 광고 상품별 VTR/CTR</title>
+<style>${css}</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📊 TVING 광고 상품별 VTR / CTR</h1>
+  <p class="sub">상품·스킵·초수 기준 효율 지표</p>
+  <p class="stamp">기준일: ${today}</p>
+
+  <section class="group gen">
+    <div class="ghead"><h2>일반형 광고</h2><span class="gpill gen">GENERAL</span></div>
+    <div class="subhead">🎬 광고 상품별 효율 <span class="vtag">(VTR / CTR · VTR은 재생 완료 기준)</span></div>
+    <div class="tblwrap">${genHTML}</div>
+    ${dgenHTML ? `<div class="subhead">📱 디바이스별 효율</div>
+    <p class="note">노출 비중은 일반형 광고 내 기준 · Mobile = iOS + Android 합산</p>
+    <div class="tblwrap">${dgenHTML}</div>` : ""}
+  </section>
+
+  <section class="group kbo">
+    <div class="ghead"><h2>KBO 광고</h2><span class="gpill kbo">⚾ KBO</span></div>
+    <div class="subhead">🎬 광고 상품별 효율 <span class="vtag">(VTR / CTR · VTR은 재생 완료 기준)</span></div>
+    <div class="tblwrap">${kboHTML}</div>
+    ${dkboHTML ? `<div class="subhead">📱 디바이스별 효율</div>
+    <p class="note">노출 비중은 KBO 광고 내 기준 · Mobile = iOS + Android 합산</p>
+    <div class="tblwrap">${dkboHTML}</div>` : ""}
+  </section>
+
+  <p class="foot">${footHTML}</p>
+</div>
+</body>
+</html>`;
+}
+
+document.getElementById("export").addEventListener("click", ()=>{
+  if(!LAST_RESULT){ alert("먼저 CSV를 업로드해 주세요."); return; }
+  const html = buildPublicHTML(LAST_RESULT);
+  const blob = new Blob([html], {type:"text/html;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "tving_vtr_ctr_public_" + new Date().toISOString().slice(0,10) + ".html";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
