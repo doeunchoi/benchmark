@@ -116,10 +116,28 @@
            background:var(--panel); color:var(--text2); cursor:pointer; transition:.12s;}
   .catchip:hover{background:var(--panel2);}
   .catchip.on{background:var(--gen-soft); border-color:var(--gen); color:var(--gen); font-weight:600;}
-  tr.mxgroup td{background:var(--panel2); font-size:12px; font-weight:700; color:var(--text2);
-                padding:7px 14px; letter-spacing:.02em;}
-  tr.mxgroup.gen td{color:var(--gen);}
-  tr.mxgroup.kbo td{color:var(--kbo);}
+  /* 필터바 */
+  .filterbar{background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:14px 18px; margin-bottom:20px; display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap;}
+  .filabel{font-size:13px; font-weight:700; color:var(--text2); white-space:nowrap; padding-bottom:6px;}
+  .filterset{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; flex:1;}
+  .filgroup{display:flex; flex-direction:column; gap:4px;}
+  .fillabel{font-size:11px; color:var(--text3); font-weight:600; letter-spacing:.03em; text-transform:uppercase;}
+  .filsel{font-size:13px; padding:7px 10px; border-radius:8px; border:1px solid var(--line2);
+    background:var(--panel); color:var(--text); cursor:pointer; min-width:110px; max-width:180px;
+    appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239098A3'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 10px center; padding-right:28px;}
+  .filsel:focus{outline:2px solid var(--gen); border-color:var(--gen);}
+  .filsel.active{border-color:var(--gen); color:var(--gen); font-weight:600; background-color:var(--gen-soft);}
+  .filresetbtn{font-size:12px; padding:7px 14px; border-radius:8px; border:1px solid var(--line2);
+    background:var(--panel2); color:var(--text2); cursor:pointer; white-space:nowrap; height:36px;}
+  .filresetbtn:hover{background:var(--line2);}
+  /* 업종 컬럼 헤더 */
+  th.cathdr{max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    background:var(--gen-soft) !important; color:var(--gen) !important; font-size:11px;}
+  .group.kbo th.cathdr{background:var(--kbo-soft) !important; color:var(--kbo) !important;}
+  td.catcell{background:rgba(59,111,224,.04);}
+  .group.kbo td.catcell{background:rgba(224,104,59,.04);}
 </style>
 </head>
 <body>
@@ -140,7 +158,7 @@
       </ul>
       <p><b>2) 자동 집계 규칙</b></p>
       <ul>
-        <li><b>하우스·보너스 물량은 모두 집계에서 제외</b>됩니다 (테스트·빈 행도 제외).</li>
+        <li><b>하우스·보너스 물량 및 재단 관련 템플릿은 모두 집계에서 제외</b>됩니다 (테스트·빈 행도 제외).</li>
         <li>iOS·Android는 <b>Mobile</b>로 합산, MACOS는 PC로 분류.</li>
         <li>노출 1만 미만 항목은 통계 신뢰도가 낮아 제외됩니다.</li>
         <li>VTR·CTR은 노출 가중 합산 기준, CPM·CPC·CPV는 내부 전용(공개 미포함).</li>
@@ -151,7 +169,7 @@
 
   <div id="drop">
     <div class="big">📁 CSV 파일을 여기에 끌어다 놓으세요</div>
-    <div class="small">또는 <b>클릭해서 선택</b> · 보너스·하우스·테스트 자동 제외</div>
+    <div class="small">또는 <b>클릭해서 선택</b> · 보너스·하우스·재단·테스트 자동 제외</div>
     <input type="file" id="file" accept=".csv" class="hidden">
   </div>
   <div id="err" class="err"></div>
@@ -162,6 +180,33 @@
       <button id="export" class="exportbtn">⬇ 공개용 HTML 내보내기</button>
       <span class="reset" id="reset">다른 파일 올리기</span>
     </div>
+
+    <section id="filterbar" class="filterbar hidden">
+      <span class="filabel">필터</span>
+      <div class="filterset">
+        <div class="filgroup">
+          <label class="fillabel">업종</label>
+          <select class="filsel" id="fil_cat"><option value="전체">전체</option></select>
+        </div>
+        <div class="filgroup">
+          <label class="fillabel">상품</label>
+          <select class="filsel" id="fil_prod"><option value="전체">전체</option></select>
+        </div>
+        <div class="filgroup">
+          <label class="fillabel">스킵 구분</label>
+          <select class="filsel" id="fil_skip">
+            <option value="전체">전체</option>
+            <option value="논스킵">논스킵</option>
+            <option value="스킵">스킵</option>
+          </select>
+        </div>
+        <div class="filgroup">
+          <label class="fillabel">소재 길이</label>
+          <select class="filsel" id="fil_sec"><option value="전체">전체</option></select>
+        </div>
+        <button id="fil_reset" class="filresetbtn">↺ 초기화</button>
+      </div>
+    </section>
 
     <section id="catchart" class="chartcard">
       <div class="subhead">🥧 업종별 집행 비중 <span class="vtag">(내부 전용)</span></div>
@@ -200,20 +245,6 @@
         <p class="note">노출 비중은 KBO 광고 내 기준 · Mobile = iOS + Android 합산</p>
         <div class="tblwrap"><table id="dkbo"></table></div>
       </div>
-    </section>
-
-    <section id="matrixwrap" class="chartcard">
-      <div class="mxhead">
-        <div class="subhead" style="margin:0;">📐 업종 × 상품 매트릭스 <span class="vtag">(내부 전용)</span></div>
-        <div class="mxctrl">
-          <span class="mxlabel">지표</span>
-          <button class="mxbtn active" id="mxvtr">VTR</button>
-          <button class="mxbtn" id="mxctr">CTR</button>
-        </div>
-      </div>
-      <p class="note" style="margin-top:8px;">기본은 <b>전체</b> 열만 표시됩니다. 업종을 선택하면 해당 열이 추가됩니다. 색이 진할수록 지표가 높음 · 빈 칸(–)은 미집행 · 비영상 포맷은 N/A.</p>
-      <div class="mxfilter" id="mxfilter"></div>
-      <div class="tblwrap" style="margin-top:12px;"><table id="matrixtbl"></table></div>
     </section>
 
     <div id="otherwrap" class="hidden">
@@ -274,7 +305,7 @@ function toNum(s){
 
 function isExcluded(n){
   if(!n || !n.trim()) return true;
-  if(n.includes("보너스") || n.includes("하우스")) return true;
+  if(n.includes("보너스") || n.includes("하우스") || n.includes("재단")) return true;
   const U = n.toUpperCase();
   if(U.includes("CJOY") || U.includes("TEST") || n.includes("test") || U.includes("MMP")) return true;
   return false;
@@ -610,23 +641,30 @@ function won(v){
   // 원 단위, 천단위 콤마
   return Math.round(v).toLocaleString("ko-KR") + "원";
 }
-function tplBlock(rowId, tpls){
+function tplBlock(rowId, tpls, colspan){
   if(!tpls || !tpls.length) return "";
   const items = tpls.map(t=>`<li>${escapeHTML(t)}</li>`).join("");
-  return `<tr class="tplrow" id="${rowId}" hidden><td colspan="7">`
+  return `<tr class="tplrow" id="${rowId}" hidden><td colspan="${colspan||8}">`
     + `<div class="tplbox"><div class="tpltitle">포함된 캠페인 템플릿 (${tpls.length}개)</div><ul class="tpllist">${items}</ul></div>`
     + `</td></tr>`;
 }
 function escapeHTML(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
-function renderTable(el, rows, internal){
+// matMap: {"prod||variant": cells} — 업종 셀 데이터. internal=true일 때만 표시.
+function renderTable(el, rows, internal, matMap){
   if(!rows.length){ el.closest(".tblwrap").style.display="none"; return; }
   el.closest(".tblwrap").style.display="";
-  const cpHdr = internal
-    ? "<th class='num'>CPM</th><th class='num'>CPC</th><th class='num'>CPV</th>"
-    : "";
+  const showCat = !!(internal && matMap && FIL.cat !== "전체");
+  const catLabel = showCat ? escapeHTML(FIL.cat) : "";
+  // colspan: exp(int) + 상품 + 구분 + VTR + CTR + catVTR + catCTR(if showCat) + CPM+CPC+CPV(int)
+  const colspan = (internal?1:0) + 2 + 2 + (showCat?2:0) + (internal?3:0);
+  const cpHdr = internal ? "<th class='num'>CPM</th><th class='num'>CPC</th><th class='num'>CPV</th>" : "";
   const expandHdr = internal ? "<th class='exp'></th>" : "";
-  let h="<thead><tr>"+expandHdr+"<th>상품</th><th>구분</th><th class='num'>VTR</th><th class='num'>CTR</th>"+cpHdr+"</tr></thead><tbody>";
+  const catHdr = showCat
+    ? `<th class='num cathdr' title='${catLabel} VTR'>${catLabel} VTR</th>`
+    + `<th class='num cathdr' title='${catLabel} CTR'>${catLabel} CTR</th>`
+    : "";
+  let h="<thead><tr>"+expandHdr+"<th>상품</th><th>구분</th><th class='num'>VTR</th><th class='num'>CTR</th>"+catHdr+cpHdr+"</tr></thead><tbody>";
   let prev=null, idc=0;
   const base = el.id || "t";
   for(const r of rows){
@@ -636,7 +674,22 @@ function renderTable(el, rows, internal){
     else { const c=vtrColor(r.vtr); vcell = `<span class="chip" style="background:${c.bg};color:${c.fg};">${r.vtr.toFixed(2)}%</span>`; }
     const cc=ctrColor(r.ctr);
     const ccell = `<span class="chip" style="background:${cc.bg};color:${cc.fg};">${r.ctr.toFixed(3)}%</span>`;
-
+    let catCells = "";
+    if(showCat){
+      const key = r.prod+"||"+r.variant;
+      const c = matMap[key] && matMap[key][FIL.cat];
+      if(c){
+        const dim = c.thin ? "opacity:.5;" : "";
+        const cv = (c.vtr!==null && c.vtr!==undefined) ? vtrColor(c.vtr) : null;
+        const cc2 = ctrColor(c.ctr);
+        catCells = (cv
+          ? `<td class="num catcell"><span class="chip" style="background:${cv.bg};color:${cv.fg};${dim}">${c.vtr.toFixed(2)}%</span></td>`
+          : `<td class="num catcell"><span class="vtag">N/A</span></td>`)
+          + `<td class="num catcell"><span class="chip" style="background:${cc2.bg};color:${cc2.fg};${dim}">${c.ctr.toFixed(3)}%</span></td>`;
+      } else {
+        catCells = `<td class="num catcell"><span class="vtag">–</span></td><td class="num catcell"><span class="vtag">–</span></td>`;
+      }
+    }
     let expCell="", cpCells="";
     if(internal){
       const rid = base+"_tpl_"+(idc++);
@@ -646,13 +699,12 @@ function renderTable(el, rows, internal){
         : `<td class="exp"></td>`;
       cpCells = `<td class="num mono">${won(r.cpm)}</td><td class="num mono">${won(r.cpc)}</td><td class="num mono">${won(r.cpv)}</td>`;
     }
-    h += `<tr>${expCell}<td class="pname">${showName?r.prod:""}</td><td>${variantLabel(r.variant)}</td><td class="num">${vcell}</td><td class="num">${ccell}</td>${cpCells}</tr>`;
+    h += `<tr>${expCell}<td class="pname">${showName?r.prod:""}</td><td>${variantLabel(r.variant)}</td><td class="num">${vcell}</td><td class="num">${ccell}</td>${catCells}${cpCells}</tr>`;
     if(internal && r.tpls && r.tpls.length){
-      h += tplBlock(base+"_tpl_"+(idc-1), r.tpls);
+      h += tplBlock(base+"_tpl_"+(idc-1), r.tpls, colspan);
     }
   }
   el.innerHTML = h + "</tbody>";
-  // 토글 바인딩
   if(internal){
     el.querySelectorAll(".expbtn").forEach(b=>{
       b.addEventListener("click", ()=>{
@@ -707,80 +759,101 @@ function renderFoot(res){
 }
 
 let LAST_RESULT = null;
-// 매트릭스 상태
-let MX_METRIC = "vtr";
-const MX_SELECTED = new Set();   // 선택된 업종(전체는 항상 표시)
+// 필터 상태
+const FIL = { cat:"전체", prod:"전체", skip:"전체", sec:"전체" };
+// 업종 매트릭스 맵: "prod||variant" -> cells
+let GEN_MAT_MAP = {}, KBO_MAT_MAP = {};
 
-function variantShort(v){
-  if(v==="-") return "–";
-  if(v==="구분 미표기") return "미표기";
-  if(v==="논스킵 (초수 미표기)") return "논스킵";
-  return v;
+function buildMatMap(matRows){
+  const m = {};
+  for(const r of (matRows||[])) m[r.prod+"||"+r.variant] = r.cells;
+  return m;
 }
-function renderMatrixFilter(res){
-  const f = document.getElementById("mxfilter");
-  if(!res.matrix || !res.matrix.cats.length){ document.getElementById("matrixwrap").style.display="none"; return; }
-  document.getElementById("matrixwrap").style.display="";
-  f.innerHTML = res.matrix.cats.map(c=>{
-    const on = MX_SELECTED.has(c);
-    return `<button class="catchip${on?" on":""}" data-cat="${escapeHTML(c)}">${escapeHTML(c)}</button>`;
-  }).join("");
-  f.querySelectorAll(".catchip").forEach(b=>{
-    b.addEventListener("click", ()=>{
-      const c=b.dataset.cat;
-      if(MX_SELECTED.has(c)) MX_SELECTED.delete(c); else MX_SELECTED.add(c);
-      renderMatrixFilter(res);
-      renderMatrix(res);
-    });
+
+function filterRows(rows){
+  return rows.filter(r=>{
+    if(FIL.prod !== "전체" && r.prod !== FIL.prod) return false;
+    if(FIL.skip !== "전체"){
+      const isNs = r.variant.startsWith("논스킵");
+      const isSk = r.variant === "스킵";
+      if(FIL.skip === "논스킵" && !isNs) return false;
+      if(FIL.skip === "스킵" && !isSk) return false;
+    }
+    if(FIL.sec !== "전체" && !r.variant.includes(FIL.sec)) return false;
+    return true;
   });
 }
-function renderMatrix(res){
-  const el = document.getElementById("matrixtbl");
-  if(!res.matrix || !res.matrix.cats.length){ return; }
-  // 표시할 열: 전체 + 선택된 업종(비중순)
-  const cols = ["전체", ...res.matrix.cats.filter(c=>MX_SELECTED.has(c))];
-  const metric = MX_METRIC;
-  function cell(c){
-    if(!c) return `<td class="num"><span class="vtag">–</span></td>`;
-    const v = c[metric];
-    if(v===null) return `<td class="num"><span class="vtag">N/A</span></td>`;
-    const col = metric==="vtr" ? vtrColor(v) : ctrColor(v);
-    const disp = metric==="vtr" ? v.toFixed(1)+"%" : v.toFixed(3)+"%";
-    const dim = c.thin ? "opacity:.45;" : "";
-    return `<td class="num"><span class="chip" style="background:${col.bg};color:${col.fg};${dim}">${disp}</span></td>`;
-  }
-  let head = "<thead><tr><th>상품</th><th>구분</th>" + cols.map(c=>`<th class="num">${c==="전체"?"<b>전체</b>":escapeHTML(c)}</th>`).join("") + "</tr></thead><tbody>";
-  function section(label, rows, cls){
-    if(!rows.length) return "";
-    let s = `<tr class="mxgroup ${cls}"><td colspan="${cols.length+2}">${label}</td></tr>`;
-    let prev=null;
-    for(const r of rows){
-      const showName = r.prod!==prev; prev=r.prod;
-      s += `<tr><td class="pname">${showName?r.prod:""}</td><td>${variantShort(r.variant)}</td>`
-        + cols.map(c=>cell(r.cells[c])).join("") + "</tr>";
-    }
-    return s;
-  }
-  el.innerHTML = head
-    + section("일반형 광고", res.matrix.gen, "gen")
-    + section("KBO 광고", res.matrix.kbo, "kbo")
-    + "</tbody>";
+
+function updateSelActive(){
+  ["fil_cat","fil_prod","fil_skip","fil_sec"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.classList.toggle("active", el.value !== "전체");
+  });
+}
+
+function applyFilters(){
+  if(!LAST_RESULT) return;
+  updateSelActive();
+  renderTable(document.getElementById("tgen"), filterRows(LAST_RESULT.gen), true, GEN_MAT_MAP);
+  renderTable(document.getElementById("tkbo"), filterRows(LAST_RESULT.kbo), true, KBO_MAT_MAP);
+}
+
+function buildFilters(res){
+  // 업종 옵션
+  const catSel = document.getElementById("fil_cat");
+  catSel.innerHTML = '<option value="전체">전체</option>'
+    + (res.matrix.cats||[]).map(c=>`<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join("");
+  catSel.value = FIL.cat;
+
+  // 상품 옵션
+  const allProds = [...new Set([
+    ...ORDER_GEN.filter(p=>res.gen.some(r=>r.prod===p)),
+    ...ORDER_KBO.filter(p=>res.kbo.some(r=>r.prod===p))
+  ])];
+  const prodSel = document.getElementById("fil_prod");
+  prodSel.innerHTML = '<option value="전체">전체</option>'
+    + allProds.map(p=>`<option value="${escapeHTML(p)}">${escapeHTML(p)}</option>`).join("");
+  prodSel.value = FIL.prod;
+
+  // 소재 길이 옵션
+  const allVars = [...res.gen, ...res.kbo].map(r=>r.variant);
+  const secs = [...new Set(allVars.flatMap(v=>{ const m=v.match(/(\d+)초/); return m?[m[1]+"초"]:[]; }))].sort((a,b)=>parseInt(a)-parseInt(b));
+  const secSel = document.getElementById("fil_sec");
+  secSel.innerHTML = '<option value="전체">전체</option>'
+    + secs.map(s=>`<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`).join("");
+  secSel.value = FIL.sec;
+
+  // 이벤트 (onchange로 중복 방지)
+  document.getElementById("fil_cat").onchange = e=>{ FIL.cat=e.target.value; applyFilters(); };
+  document.getElementById("fil_prod").onchange = e=>{ FIL.prod=e.target.value; applyFilters(); };
+  document.getElementById("fil_skip").onchange = e=>{ FIL.skip=e.target.value; applyFilters(); };
+  document.getElementById("fil_sec").onchange = e=>{ FIL.sec=e.target.value; applyFilters(); };
+  document.getElementById("fil_reset").onclick = ()=>{
+    FIL.cat="전체"; FIL.prod="전체"; FIL.skip="전체"; FIL.sec="전체";
+    ["fil_cat","fil_prod","fil_skip","fil_sec"].forEach(id=>{ document.getElementById(id).value="전체"; });
+    applyFilters();
+  };
+  updateSelActive();
+  document.getElementById("filterbar").classList.remove("hidden");
 }
 
 function show(res){
   LAST_RESULT = res;
+  GEN_MAT_MAP = buildMatMap(res.matrix.gen);
+  KBO_MAT_MAP = buildMatMap(res.matrix.kbo);
+  // 필터 초기화
+  FIL.cat="전체"; FIL.prod="전체"; FIL.skip="전체"; FIL.sec="전체";
   const g = document.querySelector(".guide");
-  if(g) g.open = false;   // 업로드 후 가이드 접기
-  renderTable(document.getElementById("tgen"), res.gen, true);
+  if(g) g.open = false;
+  renderTable(document.getElementById("tgen"), filterRows(res.gen), true, GEN_MAT_MAP);
   renderDeviceTable("dgen","dgenwrap", res.devGen);
-  renderTable(document.getElementById("tkbo"), res.kbo, true);
+  renderTable(document.getElementById("tkbo"), filterRows(res.kbo), true, KBO_MAT_MAP);
   renderDeviceTable("dkbo","dkbowrap", res.devKbo);
-  MX_SELECTED.clear();
-  renderMatrixFilter(res);
-  renderMatrix(res);
+  buildFilters(res);
   if(res.other && res.other.length){
     document.getElementById("otherwrap").classList.remove("hidden");
-    renderTable(document.getElementById("tother"), res.other, true);
+    renderTable(document.getElementById("tother"), res.other, true, null);
   } else {
     document.getElementById("otherwrap").classList.add("hidden");
   }
@@ -842,20 +915,11 @@ drop.addEventListener("drop", e=>{
 document.getElementById("reset").addEventListener("click", ()=>{
   document.getElementById("dash").classList.add("hidden");
   document.getElementById("drop").classList.remove("hidden");
+  document.getElementById("filterbar").classList.add("hidden");
   const g = document.querySelector(".guide");
   if(g) g.open = true;
   fileInput.value="";
 });
-
-// 매트릭스 지표 토글
-function setMxMetric(m){
-  MX_METRIC=m;
-  document.getElementById("mxvtr").classList.toggle("active", m==="vtr");
-  document.getElementById("mxctr").classList.toggle("active", m==="ctr");
-  if(LAST_RESULT) renderMatrix(LAST_RESULT);
-}
-document.getElementById("mxvtr").addEventListener("click", ()=>setMxMetric("vtr"));
-document.getElementById("mxctr").addEventListener("click", ()=>setMxMetric("ctr"));
 
 /* ============================================================
    공개용 HTML 내보내기
