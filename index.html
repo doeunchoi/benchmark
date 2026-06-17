@@ -221,7 +221,6 @@
 
       <div class="subhead">🎬 광고 상품별 효율 <span class="vtag">(VTR / CTR · VTR은 재생 완료 기준)</span></div>
       <div class="tblwrap"><table id="tgen"></table></div>
-      <div id="tpllist_gen"></div>
 
       <div id="dgenwrap">
         <div class="subhead">📱 디바이스별 효율</div>
@@ -265,7 +264,6 @@
 
       <div class="subhead">🎬 광고 상품별 효율 <span class="vtag">(VTR / CTR · VTR은 재생 완료 기준)</span></div>
       <div class="tblwrap"><table id="tkbo"></table></div>
-      <div id="tpllist_kbo"></div>
 
       <div id="dkbowrap">
         <div class="subhead">📱 디바이스별 효율</div>
@@ -279,6 +277,8 @@
       <p class="note">표준 상품 분류에 속하지 않는 항목입니다. 행 왼쪽 ▸ 버튼으로 포함된 캠페인 템플릿을 확인하고, 새 상품이면 분류 규칙에 반영하세요.</p>
       <div class="tblwrap"><table id="tother"></table></div>
     </div>
+
+    <div id="excwrap"></div>
 
   </div>
 </div>
@@ -483,6 +483,7 @@ function process(text){
   const buckets = {};
 
   let totalKept = 0, excluded = 0;
+  const excNames = new Set();
 
   // 업종 집행 비중용 (내부 차트 전용 — 공개 미포함)
   const catSp = {};
@@ -509,7 +510,7 @@ function process(text){
 
   for(const d of data){
     const n = (d[cTpl]||"").trim();
-    if(isExcluded(n)){ excluded++; continue; }
+    if(isExcluded(n)){ excluded++; if(n) excNames.add(n); continue; }
     const {grp, prod} = classify(n);
     const v = variantOf(n, prod);
     const imp = toNum(d[cImp]), clk = toNum(d[cClk]), vcv = toNum(d[cVcv]);
@@ -649,7 +650,8 @@ function process(text){
     devGen: deviceRows("일반형 광고"),
     devKbo: deviceRows("KBO 광고"),
     hasDevice: !!cOS,
-    totalKept, excluded, spread
+    totalKept, excluded, spread,
+    excTemplates: [...excNames].sort()
   };
 }
 
@@ -690,19 +692,12 @@ function tplBlock(rowId, tpls, colspan){
 }
 function escapeHTML(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
-function renderTplSection(elId, rows){
-  const el = document.getElementById(elId);
+function renderExcluded(excTemplates){
+  const el = document.getElementById("excwrap");
   if(!el) return;
-  const rowsWithTpls = rows.filter(r => r.tpls && r.tpls.length);
-  if(!rowsWithTpls.length){ el.innerHTML=""; return; }
-  let body="", total=0;
-  for(const r of rowsWithTpls){
-    total += r.tpls.length;
-    const label = r.variant==="-" ? escapeHTML(r.prod) : escapeHTML(r.prod)+" · "+escapeHTML(r.variant);
-    body += `<div class="tplgrp"><div class="tplgrplabel">${label} <span class="vtag">(${r.tpls.length}개)</span></div>`
-      + `<ul class="tpllist">${r.tpls.map(t=>`<li>${escapeHTML(t)}</li>`).join("")}</ul></div>`;
-  }
-  el.innerHTML = `<details class="tplsec"><summary>📋 포함된 캠페인 템플릿 <span class="badge">${total}개</span></summary><div class="tplsecbody">${body}</div></details>`;
+  if(!excTemplates || !excTemplates.length){ el.innerHTML=""; return; }
+  const items = excTemplates.map(t=>`<li>${escapeHTML(t)}</li>`).join("");
+  el.innerHTML = `<details class="tplsec"><summary>🚫 집계 제외된 캠페인 템플릿 <span class="badge">${excTemplates.length}개</span></summary><div class="tplsecbody"><ul class="tpllist">${items}</ul></div></details>`;
 }
 
 // matMap: {"prod||variant": cells} — 업종 셀 데이터
@@ -846,18 +841,14 @@ function updateSelActive(prefix){
 function applyGenFilters(){
   if(!LAST_RESULT) return;
   updateSelActive("filg");
-  const filteredGen = filterRows(LAST_RESULT.gen, FIL_GEN);
-  renderTable(document.getElementById("tgen"), filteredGen, true, GEN_MAT_MAP, FIL_GEN);
-  renderTplSection("tpllist_gen", filteredGen);
+  renderTable(document.getElementById("tgen"), filterRows(LAST_RESULT.gen, FIL_GEN), true, GEN_MAT_MAP, FIL_GEN);
   renderDeviceTable("dgen","dgenwrap", LAST_RESULT.devGen);
 }
 
 function applyKboFilters(){
   if(!LAST_RESULT) return;
   updateSelActive("filk");
-  const filteredKbo = filterRows(LAST_RESULT.kbo, FIL_KBO);
-  renderTable(document.getElementById("tkbo"), filteredKbo, true, KBO_MAT_MAP, FIL_KBO);
-  renderTplSection("tpllist_kbo", filteredKbo);
+  renderTable(document.getElementById("tkbo"), filterRows(LAST_RESULT.kbo, FIL_KBO), true, KBO_MAT_MAP, FIL_KBO);
   renderDeviceTable("dkbo","dkbowrap", LAST_RESULT.devKbo);
 }
 
@@ -910,13 +901,9 @@ function show(res){
   Object.assign(FIL_KBO, {cat:"전체", prod:"전체", skip:"전체", sec:"전체"});
   const g = document.querySelector(".guide");
   if(g) g.open = false;
-  const initGen = filterRows(res.gen, FIL_GEN);
-  renderTable(document.getElementById("tgen"), initGen, true, GEN_MAT_MAP, FIL_GEN);
-  renderTplSection("tpllist_gen", initGen);
+  renderTable(document.getElementById("tgen"), filterRows(res.gen, FIL_GEN), true, GEN_MAT_MAP, FIL_GEN);
   renderDeviceTable("dgen","dgenwrap", res.devGen);
-  const initKbo = filterRows(res.kbo, FIL_KBO);
-  renderTable(document.getElementById("tkbo"), initKbo, true, KBO_MAT_MAP, FIL_KBO);
-  renderTplSection("tpllist_kbo", initKbo);
+  renderTable(document.getElementById("tkbo"), filterRows(res.kbo, FIL_KBO), true, KBO_MAT_MAP, FIL_KBO);
   renderDeviceTable("dkbo","dkbowrap", res.devKbo);
   buildFilters(res);
   if(res.other && res.other.length){
@@ -925,6 +912,7 @@ function show(res){
   } else {
     document.getElementById("otherwrap").classList.add("hidden");
   }
+  renderExcluded(res.excTemplates);
   document.getElementById("dash").classList.remove("hidden");
   document.getElementById("drop").classList.add("hidden");
   document.getElementById("err").textContent="";
