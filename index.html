@@ -103,12 +103,51 @@
   .tpllist{margin:0; padding-left:18px; columns:2; font-size:12px; color:var(--text2); line-height:1.7;}
   .tpllist li{break-inside:avoid;}
   .mono{font-variant-numeric:tabular-nums; font-size:12px; color:var(--text);}
+  /* 매트릭스 */
+  .mxhead{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  .mxctrl{display:flex; align-items:center; gap:6px;}
+  .mxlabel{font-size:12px; color:var(--text3); margin-right:2px;}
+  .mxbtn{font-size:12px; padding:5px 12px; border-radius:7px; border:1px solid var(--line2);
+         background:var(--panel); color:var(--text2); cursor:pointer; transition:.12s;}
+  .mxbtn:hover{background:var(--panel2);}
+  .mxbtn.active{background:var(--text); color:#fff; border-color:var(--text);}
+  .mxfilter{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+  .catchip{font-size:12px; padding:4px 11px; border-radius:999px; border:1px solid var(--line2);
+           background:var(--panel); color:var(--text2); cursor:pointer; transition:.12s;}
+  .catchip:hover{background:var(--panel2);}
+  .catchip.on{background:var(--gen-soft); border-color:var(--gen); color:var(--gen); font-weight:600;}
+  tr.mxgroup td{background:var(--panel2); font-size:12px; font-weight:700; color:var(--text2);
+                padding:7px 14px; letter-spacing:.02em;}
+  tr.mxgroup.gen td{color:var(--gen);}
+  tr.mxgroup.kbo td{color:var(--kbo);}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>📊 TVING 광고 상품별 VTR / CTR 대시보드</h1>
   <p class="sub">업종별/캠페인 템플릿별 집행 데이터를 업로드하면 상품·스킵·초수 기준으로 자동 정리합니다.</p>
+
+  <details class="guide" open>
+    <summary>📋 CSV 추출 방법 · 집계 규칙 <span class="vtag">(업로드 전 확인)</span></summary>
+    <div class="guidebody">
+      <p><b>1) raw 데이터 추출 (TAS 리포트 → 일반 데이터)</b></p>
+      <ul>
+        <li>기간: 분석할 월의 1일~말일 (예: May 01, 2026 ~ May 31, 2026), 표준시 <b>Asia/Seoul</b></li>
+        <li>그룹: <b>캠페인 템플릿</b>, <b>디바이스 OS</b>, <b>카테고리</b>, <b>인벤토리 종류</b> 체크</li>
+        <li>지표: <b>매체 집행 금액</b>, <b>노출수</b>, <b>클릭수</b>, <b>CTR</b>, <b>영상 시청 완료</b>, <b>VTR</b> 체크</li>
+        <li>시간: <b>월</b> 체크</li>
+        <li>CSV로 내려받아 아래에 업로드</li>
+      </ul>
+      <p><b>2) 자동 집계 규칙</b></p>
+      <ul>
+        <li><b>하우스·보너스 물량은 모두 집계에서 제외</b>됩니다 (테스트·빈 행도 제외).</li>
+        <li>iOS·Android는 <b>Mobile</b>로 합산, MACOS는 PC로 분류.</li>
+        <li>노출 1만 미만 항목은 통계 신뢰도가 낮아 제외됩니다.</li>
+        <li>VTR·CTR은 노출 가중 합산 기준, CPM·CPC·CPV는 내부 전용(공개 미포함).</li>
+      </ul>
+      <p class="gnote">※ 공개용 HTML에는 금액·노출수·CPM/CPC/CPV·템플릿 원문이 포함되지 않습니다.</p>
+    </div>
+  </details>
 
   <div id="drop">
     <div class="big">📁 CSV 파일을 여기에 끌어다 놓으세요</div>
@@ -123,28 +162,6 @@
       <button id="export" class="exportbtn">⬇ 공개용 HTML 내보내기</button>
       <span class="reset" id="reset">다른 파일 올리기</span>
     </div>
-
-    <details class="guide">
-      <summary>📋 대시보드 사용법 · raw 데이터 추출 방법</summary>
-      <div class="guidebody">
-        <p><b>1) raw 데이터 추출 (TAS 리포트 → 일반 데이터)</b></p>
-        <ul>
-          <li>기간: 분석할 월의 1일~말일 (예: May 01, 2026 ~ May 31, 2026), 표준시 <b>Asia/Seoul</b></li>
-          <li>그룹: <b>캠페인 템플릿</b>, <b>디바이스 OS</b>, <b>카테고리</b>, <b>인벤토리 종류</b> 체크</li>
-          <li>지표: <b>매체 집행 금액</b>, <b>노출수</b>, <b>클릭수</b>, <b>CTR</b>, <b>영상 시청 완료</b>, <b>VTR</b> 체크</li>
-          <li>시간: <b>월</b> 체크</li>
-          <li>CSV로 내려받아 이 페이지에 업로드</li>
-        </ul>
-        <p><b>2) 자동 집계 규칙</b></p>
-        <ul>
-          <li><b>하우스·보너스 물량은 모두 집계에서 제외</b>됩니다 (테스트·빈 행도 제외).</li>
-          <li>iOS·Android는 <b>Mobile</b>로 합산, MACOS는 PC로 분류.</li>
-          <li>노출 1만 미만 항목은 통계 신뢰도가 낮아 제외됩니다.</li>
-          <li>VTR·CTR은 노출 가중 합산 기준, CPM·CPC·CPV는 내부 전용(공개 미포함).</li>
-        </ul>
-        <p class="gnote">※ 공개용 HTML에는 금액·노출수·CPM/CPC/CPV·템플릿 원문이 포함되지 않습니다.</p>
-      </div>
-    </details>
 
     <section id="catchart" class="chartcard">
       <div class="subhead">🥧 업종별 집행 비중 <span class="vtag">(내부 전용)</span></div>
@@ -183,6 +200,20 @@
         <p class="note">노출 비중은 KBO 광고 내 기준 · Mobile = iOS + Android 합산</p>
         <div class="tblwrap"><table id="dkbo"></table></div>
       </div>
+    </section>
+
+    <section id="matrixwrap" class="chartcard">
+      <div class="mxhead">
+        <div class="subhead" style="margin:0;">📐 업종 × 상품 매트릭스 <span class="vtag">(내부 전용)</span></div>
+        <div class="mxctrl">
+          <span class="mxlabel">지표</span>
+          <button class="mxbtn active" id="mxvtr">VTR</button>
+          <button class="mxbtn" id="mxctr">CTR</button>
+        </div>
+      </div>
+      <p class="note" style="margin-top:8px;">기본은 <b>전체</b> 열만 표시됩니다. 업종을 선택하면 해당 열이 추가됩니다. 색이 진할수록 지표가 높음 · 빈 칸(–)은 미집행 · 비영상 포맷은 N/A.</p>
+      <div class="mxfilter" id="mxfilter"></div>
+      <div class="tblwrap" style="margin-top:12px;"><table id="matrixtbl"></table></div>
     </section>
 
     <div id="otherwrap" class="hidden">
@@ -386,6 +417,18 @@ function process(text){
   const catSp = {};
   let grandSp = 0;
 
+  // 업종×상품×구분 매트릭스 집계 (내부 전용): key -> cat -> {imp,clk,vcv}
+  const matrix = {};
+  function matAdd(key, cat, imp, clk, vcv){
+    if(!matrix[key]) matrix[key] = {};
+    const m = matrix[key];
+    for(const c of ["전체", cat]){
+      if(!m[c]) m[c]={imp:0,clk:0,vcv:0};
+      m[c].imp+=imp; m[c].clk+=clk; m[c].vcv+=vcv;
+    }
+  }
+  const catSet = new Set();
+
   // 디바이스 집계: grp -> device -> {imp,clk,vcv,sp}
   const dev = { "일반형 광고":{}, "KBO 광고":{}, "전체":{} };
   function devAdd(g, dv, imp, clk, vcv, sp){
@@ -430,6 +473,10 @@ function process(text){
       (buckets[bk] = buckets[bk] || []).push({
         cat: d[cCat]||"", vtr: vcv/imp*100, ctr: clk/imp*100
       });
+      // 매트릭스(내부): 그룹·상품·구분 × 업종
+      const cat = d[cCat] || "(미상)";
+      catSet.add(cat);
+      matAdd(key, cat, imp, clk, vcv);
     }
   }
 
@@ -496,11 +543,38 @@ function process(text){
     .map(([c,sp])=>({cat:c, share: grandSp? sp/grandSp*100 : 0}))
     .sort((a,b)=>b.share-a.share);
 
+  // 매트릭스 행: 그룹 순서대로 상품·구분 나열 + 각 업종 셀
+  const matCats = catShare.map(c=>c.cat).filter(c=>catSet.has(c)); // 비중 큰 순
+  function matRows(group, order){
+    const rows = rowsFor(group, order); // prod/variant 순서 재사용
+    return rows.map(r=>{
+      const key = group+"||"+r.prod+"||"+r.variant;
+      const m = matrix[key] || {};
+      const cells = {};
+      for(const c of ["전체", ...matCats]){
+        const a = m[c];
+        if(a && a.imp>0){
+          cells[c] = {
+            vtr: NO_VTR.has(r.prod) ? null : a.vcv/a.imp*100,
+            ctr: a.clk/a.imp*100,
+            thin: a.imp < MIN_IMP
+          };
+        }
+      }
+      return {prod:r.prod, variant:r.variant, cells};
+    });
+  }
+
   return {
     gen: rowsFor("일반형 광고", ORDER_GEN),
     kbo: rowsFor("KBO 광고", ORDER_KBO),
     other: rowsFor("기타", []),
     catShare,
+    matrix: {
+      cats: matCats,
+      gen: matRows("일반형 광고", ORDER_GEN),
+      kbo: matRows("KBO 광고", ORDER_KBO)
+    },
     devGen: deviceRows("일반형 광고"),
     devKbo: deviceRows("KBO 광고"),
     hasDevice: !!cOS,
@@ -625,20 +699,85 @@ function renderFoot(res){
   if(ranges.length){
     const median = ranges[Math.floor(ranges.length/2)];
     const rep = Math.max(1, Math.round(median));  // 대표 편차폭(중앙값)
-    line = `같은 상품·초수 조건에서는 업종이 달라도 VTR 편차가 대부분 <b>${rep}~${rep+2}%p 수준</b>으로 작아, 업종×상품 매트릭스는 생략했습니다.`;
+    line = `참고: 같은 상품·초수 조건에서는 업종이 달라도 VTR 편차가 대부분 <b>${rep}~${rep+2}%p 수준</b>으로 작습니다.`;
   } else {
-    line = `업종×상품 매트릭스는 업종 간 편차가 작아 생략했습니다.`;
+    line = ``;
   }
   foot.innerHTML = line;
 }
 
 let LAST_RESULT = null;
+// 매트릭스 상태
+let MX_METRIC = "vtr";
+const MX_SELECTED = new Set();   // 선택된 업종(전체는 항상 표시)
+
+function variantShort(v){
+  if(v==="-") return "–";
+  if(v==="구분 미표기") return "미표기";
+  if(v==="논스킵 (초수 미표기)") return "논스킵";
+  return v;
+}
+function renderMatrixFilter(res){
+  const f = document.getElementById("mxfilter");
+  if(!res.matrix || !res.matrix.cats.length){ document.getElementById("matrixwrap").style.display="none"; return; }
+  document.getElementById("matrixwrap").style.display="";
+  f.innerHTML = res.matrix.cats.map(c=>{
+    const on = MX_SELECTED.has(c);
+    return `<button class="catchip${on?" on":""}" data-cat="${escapeHTML(c)}">${escapeHTML(c)}</button>`;
+  }).join("");
+  f.querySelectorAll(".catchip").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      const c=b.dataset.cat;
+      if(MX_SELECTED.has(c)) MX_SELECTED.delete(c); else MX_SELECTED.add(c);
+      renderMatrixFilter(res);
+      renderMatrix(res);
+    });
+  });
+}
+function renderMatrix(res){
+  const el = document.getElementById("matrixtbl");
+  if(!res.matrix || !res.matrix.cats.length){ return; }
+  // 표시할 열: 전체 + 선택된 업종(비중순)
+  const cols = ["전체", ...res.matrix.cats.filter(c=>MX_SELECTED.has(c))];
+  const metric = MX_METRIC;
+  function cell(c){
+    if(!c) return `<td class="num"><span class="vtag">–</span></td>`;
+    const v = c[metric];
+    if(v===null) return `<td class="num"><span class="vtag">N/A</span></td>`;
+    const col = metric==="vtr" ? vtrColor(v) : ctrColor(v);
+    const disp = metric==="vtr" ? v.toFixed(1)+"%" : v.toFixed(3)+"%";
+    const dim = c.thin ? "opacity:.45;" : "";
+    return `<td class="num"><span class="chip" style="background:${col.bg};color:${col.fg};${dim}">${disp}</span></td>`;
+  }
+  let head = "<thead><tr><th>상품</th><th>구분</th>" + cols.map(c=>`<th class="num">${c==="전체"?"<b>전체</b>":escapeHTML(c)}</th>`).join("") + "</tr></thead><tbody>";
+  function section(label, rows, cls){
+    if(!rows.length) return "";
+    let s = `<tr class="mxgroup ${cls}"><td colspan="${cols.length+2}">${label}</td></tr>`;
+    let prev=null;
+    for(const r of rows){
+      const showName = r.prod!==prev; prev=r.prod;
+      s += `<tr><td class="pname">${showName?r.prod:""}</td><td>${variantShort(r.variant)}</td>`
+        + cols.map(c=>cell(r.cells[c])).join("") + "</tr>";
+    }
+    return s;
+  }
+  el.innerHTML = head
+    + section("일반형 광고", res.matrix.gen, "gen")
+    + section("KBO 광고", res.matrix.kbo, "kbo")
+    + "</tbody>";
+}
+
 function show(res){
   LAST_RESULT = res;
+  const g = document.querySelector(".guide");
+  if(g) g.open = false;   // 업로드 후 가이드 접기
   renderTable(document.getElementById("tgen"), res.gen, true);
   renderDeviceTable("dgen","dgenwrap", res.devGen);
   renderTable(document.getElementById("tkbo"), res.kbo, true);
   renderDeviceTable("dkbo","dkbowrap", res.devKbo);
+  MX_SELECTED.clear();
+  renderMatrixFilter(res);
+  renderMatrix(res);
   if(res.other && res.other.length){
     document.getElementById("otherwrap").classList.remove("hidden");
     renderTable(document.getElementById("tother"), res.other, true);
@@ -703,8 +842,20 @@ drop.addEventListener("drop", e=>{
 document.getElementById("reset").addEventListener("click", ()=>{
   document.getElementById("dash").classList.add("hidden");
   document.getElementById("drop").classList.remove("hidden");
+  const g = document.querySelector(".guide");
+  if(g) g.open = true;
   fileInput.value="";
 });
+
+// 매트릭스 지표 토글
+function setMxMetric(m){
+  MX_METRIC=m;
+  document.getElementById("mxvtr").classList.toggle("active", m==="vtr");
+  document.getElementById("mxctr").classList.toggle("active", m==="ctr");
+  if(LAST_RESULT) renderMatrix(LAST_RESULT);
+}
+document.getElementById("mxvtr").addEventListener("click", ()=>setMxMetric("vtr"));
+document.getElementById("mxctr").addEventListener("click", ()=>setMxMetric("ctr"));
 
 /* ============================================================
    공개용 HTML 내보내기
