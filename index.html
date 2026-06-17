@@ -183,7 +183,6 @@
         <h2>일반형 광고</h2>
         <span class="gpill gen">GENERAL</span>
       </div>
-      <p class="gdesc">TOP20 · 베이직 인스트림 · 시청데모 · 프라임타임 · CTV 프리미어 · 아웃스트림 · 일시정지 · 이미지 배너 · 스플래시</p>
 
       <section id="filterbar_gen" class="filterbar hidden">
         <span class="filabel">필터</span>
@@ -227,7 +226,6 @@
         <h2>KBO 광고</h2>
         <span class="gpill kbo">⚾ KBO</span>
       </div>
-      <p class="gdesc">노출 보장 · 노출 보장(제한) · 1주 집중 · 구단 타겟팅 · 7이닝 · 퍼스트뷰(영상) · 퍼스트뷰(DA)</p>
 
       <section id="filterbar_kbo" class="filterbar hidden">
         <span class="filabel">필터</span>
@@ -272,7 +270,6 @@
       <div class="tblwrap"><table id="tother"></table></div>
     </div>
 
-    <p class="foot" id="foot"></p>
   </div>
 </div>
 
@@ -379,6 +376,8 @@ function classify(n){
 
 // 비영상 포맷 (VTR N/A)
 const NO_VTR = new Set(["스플래시","일시정지","이미지 배너","퍼스트뷰(DA)"]);
+// 클릭 미지원 포맷 (CTR N/A)
+const NO_CTR = new Set(["스플래시"]);
 // KBO 상품
 const KBO_PRODS = new Set(["노출 보장","노출 보장(제한)","구단 타겟팅","1주 집중","7이닝","퍼스트뷰(영상)","퍼스트뷰(DA)"]);
 // 일반형 단일 구성 (스킵/초수 분리 없음 → '-')
@@ -559,7 +558,7 @@ function process(text){
         out.push({
           prod, variant:a.variant,
           vtr: NO_VTR.has(prod) ? null : (a.vcv/a.imp*100),
-          ctr: a.clk/a.imp*100,
+          ctr: NO_CTR.has(prod) ? null : a.clk/a.imp*100,
           cpm: a.sp>0 ? a.sp/a.imp*1000 : null,                 // 노출 1,000당
           cpc: (a.sp>0 && a.clk>0) ? a.sp/a.clk : null,         // 클릭당
           cpv: (a.sp>0 && a.vcv>0 && !NO_VTR.has(prod)) ? a.sp/a.vcv : null, // 영상완료당
@@ -707,8 +706,9 @@ function renderTable(el, rows, internal, matMap, fil){
     let vcell;
     if(r.vtr===null) vcell = '<span class="vtag">N/A</span>';
     else { const c=vtrColor(r.vtr); vcell = `<span class="chip" style="background:${c.bg};color:${c.fg};">${r.vtr.toFixed(2)}%</span>`; }
-    const cc=ctrColor(r.ctr);
-    const ccell = `<span class="chip" style="background:${cc.bg};color:${cc.fg};">${r.ctr.toFixed(3)}%</span>`;
+    let ccell;
+    if(r.ctr===null) ccell = '<span class="vtag">N/A</span>';
+    else { const cc=ctrColor(r.ctr); ccell = `<span class="chip" style="background:${cc.bg};color:${cc.fg};">${r.ctr.toFixed(3)}%</span>`; }
     let catCells = "";
     if(showCat){
       const key = r.prod+"||"+r.variant;
@@ -716,11 +716,13 @@ function renderTable(el, rows, internal, matMap, fil){
       if(c){
         const dim = c.thin ? "opacity:.5;" : "";
         const cv = (c.vtr!==null && c.vtr!==undefined) ? vtrColor(c.vtr) : null;
-        const cc2 = ctrColor(c.ctr);
-        catCells = (cv
+        const vtrCell = cv
           ? `<td class="num catcell"><span class="chip" style="background:${cv.bg};color:${cv.fg};${dim}">${c.vtr.toFixed(2)}%</span></td>`
-          : `<td class="num catcell"><span class="vtag">N/A</span></td>`)
-          + `<td class="num catcell"><span class="chip" style="background:${cc2.bg};color:${cc2.fg};${dim}">${c.ctr.toFixed(3)}%</span></td>`;
+          : `<td class="num catcell"><span class="vtag">N/A</span></td>`;
+        let ctrCell;
+        if(r.ctr===null) ctrCell = `<td class="num catcell"><span class="vtag">N/A</span></td>`;
+        else { const cc2=ctrColor(c.ctr); ctrCell = `<td class="num catcell"><span class="chip" style="background:${cc2.bg};color:${cc2.fg};${dim}">${c.ctr.toFixed(3)}%</span></td>`; }
+        catCells = vtrCell + ctrCell;
       } else {
         catCells = `<td class="num catcell"><span class="vtag">–</span></td><td class="num catcell"><span class="vtag">–</span></td>`;
       }
@@ -775,25 +777,14 @@ function renderDeviceTable(elId, wrapId, rows){
   el.innerHTML = buildDeviceTableInner(rows);
 }
 
-function renderFoot(res){
-  // 논스킵 계열(VTR이 높은) 버킷의 업종 간 편차폭만 모아 대표값 산정
-  const ranges = res.spread
-    .filter(s => s.range >= 0 && s.max >= 80)
-    .map(s => s.range)
-    .sort((a,b)=>a-b);
-  const foot = document.getElementById("foot");
-  let line;
-  if(ranges.length){
-    const median = ranges[Math.floor(ranges.length/2)];
-    const rep = Math.max(1, Math.round(median));  // 대표 편차폭(중앙값)
-    line = `참고: 같은 상품·초수 조건에서는 업종이 달라도 VTR 편차가 대부분 <b>${rep}~${rep+2}%p 수준</b>으로 작습니다.`;
-  } else {
-    line = ``;
-  }
-  foot.innerHTML = line;
-}
-
 let LAST_RESULT = null;
+let LAST_FILENAME = null;
+function extractDateFromFilename(filename){
+  const m = filename.match(/(\d{8})-(\d{8})/);
+  if(!m) return null;
+  const fmt = s => s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8);
+  return fmt(m[1])+' ~ '+fmt(m[2]);
+}
 // 일반형 / KBO 필터 상태 분리
 const FIL_GEN = { cat:"전체", prod:"전체", skip:"전체", sec:"전체" };
 const FIL_KBO = { cat:"전체", prod:"전체", skip:"전체", sec:"전체" };
@@ -901,7 +892,6 @@ function show(res){
   } else {
     document.getElementById("otherwrap").classList.add("hidden");
   }
-  renderFoot(res);
   document.getElementById("dash").classList.remove("hidden");
   document.getElementById("drop").classList.add("hidden");
   document.getElementById("err").textContent="";
@@ -918,6 +908,7 @@ const errEl = document.getElementById("err");
 function handleFile(file){
   if(!file){ return; }
   if(!/\.csv$/i.test(file.name)){ errEl.textContent="CSV 파일만 업로드할 수 있습니다."; return; }
+  LAST_FILENAME = file.name;
   const reader = new FileReader();
   reader.onload = e => {
     try { show(process(e.target.result)); }
@@ -952,7 +943,7 @@ document.getElementById("reset").addEventListener("click", ()=>{
    ============================================================ */
 function buildPublicHTML(res){
   const today = new Date().toISOString().slice(0,10);
-  const footHTML = document.getElementById("foot").innerHTML;
+  const dateLabel = LAST_FILENAME ? (extractDateFromFilename(LAST_FILENAME) || today) : today;
 
   // 공개 데이터: CPM/CPC/CPV/tpls 제외
   function pubRows(rows){ return rows.map(r=>({prod:r.prod,variant:r.variant,vtr:r.vtr,ctr:r.ctr})); }
@@ -1070,9 +1061,9 @@ function renderTable(el,rows,matMap,fil){
   for(const r of rows){
     const sn=r.prod!==prev;prev=r.prod;
     let vc;if(r.vtr===null)vc='<span class="vtag">N/A</span>';else{const c=vtrColor(r.vtr);vc='<span class="chip" style="background:'+c.bg+';color:'+c.fg+';">'+r.vtr.toFixed(2)+'%</span>';}
-    const cc=ctrColor(r.ctr),ccl='<span class="chip" style="background:'+cc.bg+';color:'+cc.fg+';">'+r.ctr.toFixed(3)+'%</span>';
+    let ccl;if(r.ctr===null)ccl='<span class="vtag">N/A</span>';else{const cc=ctrColor(r.ctr);ccl='<span class="chip" style="background:'+cc.bg+';color:'+cc.fg+';">'+r.ctr.toFixed(3)+'%</span>';}
     let cat="";
-    if(showCat){const key=r.prod+"||"+r.variant,c=matMap[key]&&matMap[key][fil.cat];if(c){const dm=c.thin?"opacity:.5;":"",cv=(c.vtr!=null)?vtrColor(c.vtr):null,c2=ctrColor(c.ctr);cat=(cv?'<td class="num catcell"><span class="chip" style="background:'+cv.bg+';color:'+cv.fg+';'+dm+'">'+c.vtr.toFixed(2)+'%</span></td>':'<td class="num catcell"><span class="vtag">N/A</span></td>')+'<td class="num catcell"><span class="chip" style="background:'+c2.bg+';color:'+c2.fg+';'+dm+'">'+c.ctr.toFixed(3)+'%</span></td>';}else cat='<td class="num catcell"><span class="vtag">–</span></td><td class="num catcell"><span class="vtag">–</span></td>';}
+    if(showCat){const key=r.prod+"||"+r.variant,c=matMap[key]&&matMap[key][fil.cat];if(c){const dm=c.thin?"opacity:.5;":"",cv=(c.vtr!=null)?vtrColor(c.vtr):null;const vtd=cv?'<td class="num catcell"><span class="chip" style="background:'+cv.bg+';color:'+cv.fg+';'+dm+'">'+c.vtr.toFixed(2)+'%</span></td>':'<td class="num catcell"><span class="vtag">N/A</span></td>';let ctd;if(r.ctr===null){ctd='<td class="num catcell"><span class="vtag">N/A</span></td>';}else{const c2=ctrColor(c.ctr);ctd='<td class="num catcell"><span class="chip" style="background:'+c2.bg+';color:'+c2.fg+';'+dm+'">'+c.ctr.toFixed(3)+'%</span></td>';}cat=vtd+ctd;}else cat='<td class="num catcell"><span class="vtag">–</span></td><td class="num catcell"><span class="vtag">–</span></td>';}
     h+='<tr><td class="pname">'+(sn?r.prod:"")+'</td><td>'+variantLabel(r.variant)+'</td><td class="num">'+vc+'</td><td class="num">'+ccl+'</td>'+cat+'</tr>';
   }
   el.innerHTML=h+"</tbody>";
@@ -1111,11 +1102,10 @@ renderDev("dkbo","dkbowrap",D.devKbo);`;
 <div class="wrap">
   <h1>📊 TVING 광고 상품별 VTR / CTR</h1>
   <p class="sub">상품·스킵·초수 기준 효율 지표</p>
-  <p class="stamp">기준일: ${today}</p>
+  <p class="stamp">기준일: ${dateLabel}</p>
 
   <section class="group gen">
     <div class="ghead"><h2>일반형 광고</h2><span class="gpill gen">GENERAL</span></div>
-    <p class="gdesc">TOP20 · 베이직 인스트림 · 시청데모 · 프라임타임 · CTV 프리미어 · 아웃스트림 · 일시정지 · 이미지 배너 · 스플래시</p>
     ${filterbarHTML("filg")}
     <div class="subhead">🎬 광고 상품별 효율 <span class="vtag">(VTR / CTR · VTR은 재생 완료 기준)</span></div>
     <div class="tblwrap"><table id="tgen"></table></div>
@@ -1128,7 +1118,6 @@ renderDev("dkbo","dkbowrap",D.devKbo);`;
 
   <section class="group kbo">
     <div class="ghead"><h2>KBO 광고</h2><span class="gpill kbo">⚾ KBO</span></div>
-    <p class="gdesc">노출 보장 · 노출 보장(제한) · 1주 집중 · 구단 타겟팅 · 7이닝 · 퍼스트뷰(영상) · 퍼스트뷰(DA)</p>
     ${filterbarHTML("filk")}
     <div class="subhead">🎬 광고 상품별 효율 <span class="vtag">(VTR / CTR · VTR은 재생 완료 기준)</span></div>
     <div class="tblwrap"><table id="tkbo"></table></div>
@@ -1139,7 +1128,6 @@ renderDev("dkbo","dkbowrap",D.devKbo);`;
     </div>
   </section>
 
-  <p class="foot">${footHTML}</p>
 </div>
 <script>
 ${pubJS}
