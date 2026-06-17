@@ -932,7 +932,21 @@ function handleFile(file){
   LAST_FILENAME = file.name;
   const reader = new FileReader();
   reader.onload = e => {
-    try { show(process(e.target.result)); }
+    let text = e.target.result;
+    // UTF-8로 읽었을 때 한글 컬럼이 깨진 경우 EUC-KR로 재시도
+    const hasGarbled = /[�\xA1-\xFF]{3,}/.test(text.slice(0, 500))
+      || (text.length > 0 && !/[가-힣ㄱ-ㆎ]/.test(text.slice(0, 200)));
+    if(hasGarbled){
+      const reader2 = new FileReader();
+      reader2.onload = e2 => {
+        try { show(process(e2.target.result)); }
+        catch(err){ errEl.textContent = "처리 오류: " + err.message; }
+      };
+      reader2.onerror = () => errEl.textContent = "파일을 읽을 수 없습니다.";
+      reader2.readAsText(file, "EUC-KR");
+      return;
+    }
+    try { show(process(text)); }
     catch(err){ errEl.textContent = "처리 오류: " + err.message; }
   };
   reader.onerror = () => errEl.textContent = "파일을 읽을 수 없습니다.";
