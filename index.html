@@ -95,6 +95,14 @@
   .tpllist{margin:0; padding-left:18px; columns:2; font-size:12px; color:var(--text2); line-height:1.7;}
   .tpllist li{break-inside:avoid;}
   .mono{font-variant-numeric:tabular-nums; font-size:12px; color:var(--text);}
+  /* 통합 템플릿 섹션 */
+  .tplsec{border:1px solid var(--line);border-radius:10px;margin-bottom:22px;background:var(--panel);overflow:hidden;}
+  .tplsec summary{cursor:pointer;padding:10px 16px;font-size:13px;font-weight:600;color:var(--text2);list-style:none;display:flex;align-items:center;gap:8px;}
+  .tplsec summary::-webkit-details-marker{display:none;}
+  .tplsec summary:hover{background:var(--panel2);}
+  .tplsec[open] summary{border-bottom:1px solid var(--line);}
+  .tplsecbody{padding:12px 18px 16px;display:flex;flex-direction:column;gap:12px;}
+  .tplgrplabel{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:4px;}
   /* 필터바 */
   .filterbar{background:var(--panel); border:1px solid var(--line); border-radius:12px;
     padding:14px 18px; margin-bottom:20px; display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap;}
@@ -213,6 +221,7 @@
 
       <div class="subhead">🎬 광고 상품별 효율 <span class="vtag">(VTR / CTR · VTR은 재생 완료 기준)</span></div>
       <div class="tblwrap"><table id="tgen"></table></div>
+      <div id="tpllist_gen"></div>
 
       <div id="dgenwrap">
         <div class="subhead">📱 디바이스별 효율</div>
@@ -256,6 +265,7 @@
 
       <div class="subhead">🎬 광고 상품별 효율 <span class="vtag">(VTR / CTR · VTR은 재생 완료 기준)</span></div>
       <div class="tblwrap"><table id="tkbo"></table></div>
+      <div id="tpllist_kbo"></div>
 
       <div id="dkbowrap">
         <div class="subhead">📱 디바이스별 효율</div>
@@ -680,6 +690,21 @@ function tplBlock(rowId, tpls, colspan){
 }
 function escapeHTML(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
+function renderTplSection(elId, rows){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  const rowsWithTpls = rows.filter(r => r.tpls && r.tpls.length);
+  if(!rowsWithTpls.length){ el.innerHTML=""; return; }
+  let body="", total=0;
+  for(const r of rowsWithTpls){
+    total += r.tpls.length;
+    const label = r.variant==="-" ? escapeHTML(r.prod) : escapeHTML(r.prod)+" · "+escapeHTML(r.variant);
+    body += `<div class="tplgrp"><div class="tplgrplabel">${label} <span class="vtag">(${r.tpls.length}개)</span></div>`
+      + `<ul class="tpllist">${r.tpls.map(t=>`<li>${escapeHTML(t)}</li>`).join("")}</ul></div>`;
+  }
+  el.innerHTML = `<details class="tplsec"><summary>📋 포함된 캠페인 템플릿 <span class="badge">${total}개</span></summary><div class="tplsecbody">${body}</div></details>`;
+}
+
 // matMap: {"prod||variant": cells} — 업종 셀 데이터
 // fil: {cat, ...} — 필터 상태. cat!=="전체" 시 업종 컬럼 표시
 // internal: true면 CPM/CPC/CPV + 템플릿 토글 표시
@@ -821,14 +846,18 @@ function updateSelActive(prefix){
 function applyGenFilters(){
   if(!LAST_RESULT) return;
   updateSelActive("filg");
-  renderTable(document.getElementById("tgen"), filterRows(LAST_RESULT.gen, FIL_GEN), true, GEN_MAT_MAP, FIL_GEN);
+  const filteredGen = filterRows(LAST_RESULT.gen, FIL_GEN);
+  renderTable(document.getElementById("tgen"), filteredGen, true, GEN_MAT_MAP, FIL_GEN);
+  renderTplSection("tpllist_gen", filteredGen);
   renderDeviceTable("dgen","dgenwrap", LAST_RESULT.devGen);
 }
 
 function applyKboFilters(){
   if(!LAST_RESULT) return;
   updateSelActive("filk");
-  renderTable(document.getElementById("tkbo"), filterRows(LAST_RESULT.kbo, FIL_KBO), true, KBO_MAT_MAP, FIL_KBO);
+  const filteredKbo = filterRows(LAST_RESULT.kbo, FIL_KBO);
+  renderTable(document.getElementById("tkbo"), filteredKbo, true, KBO_MAT_MAP, FIL_KBO);
+  renderTplSection("tpllist_kbo", filteredKbo);
   renderDeviceTable("dkbo","dkbowrap", LAST_RESULT.devKbo);
 }
 
@@ -881,9 +910,13 @@ function show(res){
   Object.assign(FIL_KBO, {cat:"전체", prod:"전체", skip:"전체", sec:"전체"});
   const g = document.querySelector(".guide");
   if(g) g.open = false;
-  renderTable(document.getElementById("tgen"), filterRows(res.gen, FIL_GEN), true, GEN_MAT_MAP, FIL_GEN);
+  const initGen = filterRows(res.gen, FIL_GEN);
+  renderTable(document.getElementById("tgen"), initGen, true, GEN_MAT_MAP, FIL_GEN);
+  renderTplSection("tpllist_gen", initGen);
   renderDeviceTable("dgen","dgenwrap", res.devGen);
-  renderTable(document.getElementById("tkbo"), filterRows(res.kbo, FIL_KBO), true, KBO_MAT_MAP, FIL_KBO);
+  const initKbo = filterRows(res.kbo, FIL_KBO);
+  renderTable(document.getElementById("tkbo"), initKbo, true, KBO_MAT_MAP, FIL_KBO);
+  renderTplSection("tpllist_kbo", initKbo);
   renderDeviceTable("dkbo","dkbowrap", res.devKbo);
   buildFilters(res);
   if(res.other && res.other.length){
