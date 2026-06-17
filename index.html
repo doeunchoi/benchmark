@@ -119,6 +119,21 @@
   .group.kbo th.cathdr{background:var(--kbo-soft) !important; color:var(--kbo) !important;}
   td.catcell{background:rgba(59,111,224,.04);}
   .group.kbo td.catcell{background:rgba(224,104,59,.04);}
+  /* 미리보기 모달 */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;
+    align-items:flex-start;justify-content:center;padding:24px;}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:#fff;border-radius:16px;width:100%;max-width:980px;
+    height:calc(100vh - 48px);display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 8px 48px rgba(0,0,0,.25);}
+  .modal-head{display:flex;align-items:center;gap:12px;padding:14px 18px;
+    border-bottom:1px solid var(--line);background:var(--panel);}
+  .modal-title{font-size:15px;font-weight:700;flex:1;color:var(--text);}
+  .modal-close{border:none;background:var(--panel2);border-radius:8px;
+    padding:6px 14px;cursor:pointer;font-size:13px;color:var(--text2);}
+  .modal-close:hover{background:var(--line2);}
+  .modal-body{flex:1;overflow:hidden;}
+  .modal-body iframe{width:100%;height:100%;border:none;}
 </style>
 </head>
 <body>
@@ -158,6 +173,7 @@
   <div id="dash" class="hidden">
     <div class="adminbar">
       <span class="internal">🔒 내부 검토용 — 이 화면은 외부에 공유하지 마세요</span>
+      <button id="preview" class="exportbtn" style="background:var(--gen);">👁 미리보기</button>
       <button id="export" class="exportbtn">⬇ 공개용 HTML 내보내기</button>
       <span class="reset" id="reset">다른 파일 올리기</span>
     </div>
@@ -172,10 +188,6 @@
       <section id="filterbar_gen" class="filterbar hidden">
         <span class="filabel">필터</span>
         <div class="filterset">
-          <div class="filgroup">
-            <label class="fillabel">업종</label>
-            <select class="filsel" id="filg_cat"><option value="전체">전체</option></select>
-          </div>
           <div class="filgroup">
             <label class="fillabel">상품</label>
             <select class="filsel" id="filg_prod"><option value="전체">전체</option></select>
@@ -193,13 +205,8 @@
             <select class="filsel" id="filg_sec"><option value="전체">전체</option></select>
           </div>
           <div class="filgroup">
-            <label class="fillabel">디바이스</label>
-            <select class="filsel" id="filg_dev">
-              <option value="전체">전체</option>
-              <option value="Mobile">Mobile</option>
-              <option value="CTV">CTV</option>
-              <option value="PC">PC</option>
-            </select>
+            <label class="fillabel">업종</label>
+            <select class="filsel" id="filg_cat"><option value="전체">전체</option></select>
           </div>
           <button id="filg_reset" class="filresetbtn">↺ 초기화</button>
         </div>
@@ -226,10 +233,6 @@
         <span class="filabel">필터</span>
         <div class="filterset">
           <div class="filgroup">
-            <label class="fillabel">업종</label>
-            <select class="filsel" id="filk_cat"><option value="전체">전체</option></select>
-          </div>
-          <div class="filgroup">
             <label class="fillabel">상품</label>
             <select class="filsel" id="filk_prod"><option value="전체">전체</option></select>
           </div>
@@ -246,13 +249,8 @@
             <select class="filsel" id="filk_sec"><option value="전체">전체</option></select>
           </div>
           <div class="filgroup">
-            <label class="fillabel">디바이스</label>
-            <select class="filsel" id="filk_dev">
-              <option value="전체">전체</option>
-              <option value="Mobile">Mobile</option>
-              <option value="CTV">CTV</option>
-              <option value="PC">PC</option>
-            </select>
+            <label class="fillabel">업종</label>
+            <select class="filsel" id="filk_cat"><option value="전체">전체</option></select>
           </div>
           <button id="filk_reset" class="filresetbtn">↺ 초기화</button>
         </div>
@@ -275,6 +273,18 @@
     </div>
 
     <p class="foot" id="foot"></p>
+  </div>
+</div>
+
+<div id="previewModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">👁 공개용 HTML 미리보기</span>
+      <button class="modal-close" id="previewClose">✕ 닫기</button>
+    </div>
+    <div class="modal-body">
+      <iframe id="previewFrame" title="공개용 미리보기"></iframe>
+    </div>
   </div>
 </div>
 
@@ -785,8 +795,8 @@ function renderFoot(res){
 
 let LAST_RESULT = null;
 // 일반형 / KBO 필터 상태 분리
-const FIL_GEN = { cat:"전체", prod:"전체", skip:"전체", sec:"전체", dev:"전체" };
-const FIL_KBO = { cat:"전체", prod:"전체", skip:"전체", sec:"전체", dev:"전체" };
+const FIL_GEN = { cat:"전체", prod:"전체", skip:"전체", sec:"전체" };
+const FIL_KBO = { cat:"전체", prod:"전체", skip:"전체", sec:"전체" };
 let GEN_MAT_MAP = {}, KBO_MAT_MAP = {};
 
 function buildMatMap(matRows){
@@ -809,14 +819,8 @@ function filterRows(rows, fil){
   });
 }
 
-function filterDevRows(rows, fil){
-  if(!rows || !rows.length) return rows;
-  if(!fil || fil.dev === "전체") return rows;
-  return rows.filter(r => r.device === fil.dev);
-}
-
 function updateSelActive(prefix){
-  ["cat","prod","skip","sec","dev"].forEach(k=>{
+  ["cat","prod","skip","sec"].forEach(k=>{
     const el = document.getElementById(prefix+"_"+k);
     if(!el) return;
     el.classList.toggle("active", el.value !== "전체");
@@ -827,14 +831,14 @@ function applyGenFilters(){
   if(!LAST_RESULT) return;
   updateSelActive("filg");
   renderTable(document.getElementById("tgen"), filterRows(LAST_RESULT.gen, FIL_GEN), true, GEN_MAT_MAP, FIL_GEN);
-  renderDeviceTable("dgen","dgenwrap", filterDevRows(LAST_RESULT.devGen, FIL_GEN));
+  renderDeviceTable("dgen","dgenwrap", LAST_RESULT.devGen);
 }
 
 function applyKboFilters(){
   if(!LAST_RESULT) return;
   updateSelActive("filk");
   renderTable(document.getElementById("tkbo"), filterRows(LAST_RESULT.kbo, FIL_KBO), true, KBO_MAT_MAP, FIL_KBO);
-  renderDeviceTable("dkbo","dkbowrap", filterDevRows(LAST_RESULT.devKbo, FIL_KBO));
+  renderDeviceTable("dkbo","dkbowrap", LAST_RESULT.devKbo);
 }
 
 function buildGroupFilters(res, prefix, fil, rows, orderList, applyFn, barId){
@@ -863,10 +867,9 @@ function buildGroupFilters(res, prefix, fil, rows, orderList, applyFn, barId){
   document.getElementById(prefix+"_prod").onchange = e=>{ fil.prod=e.target.value; applyFn(); };
   document.getElementById(prefix+"_skip").onchange = e=>{ fil.skip=e.target.value; applyFn(); };
   document.getElementById(prefix+"_sec").onchange = e=>{ fil.sec=e.target.value; applyFn(); };
-  document.getElementById(prefix+"_dev").onchange = e=>{ fil.dev=e.target.value; applyFn(); };
   document.getElementById(prefix+"_reset").onclick = ()=>{
-    fil.cat="전체"; fil.prod="전체"; fil.skip="전체"; fil.sec="전체"; fil.dev="전체";
-    ["cat","prod","skip","sec","dev"].forEach(k=>{ document.getElementById(prefix+"_"+k).value="전체"; });
+    fil.cat="전체"; fil.prod="전체"; fil.skip="전체"; fil.sec="전체";
+    ["cat","prod","skip","sec"].forEach(k=>{ document.getElementById(prefix+"_"+k).value="전체"; });
     applyFn();
   };
   updateSelActive(prefix);
@@ -883,14 +886,14 @@ function show(res){
   GEN_MAT_MAP = buildMatMap(res.matrix.gen);
   KBO_MAT_MAP = buildMatMap(res.matrix.kbo);
   // 필터 초기화
-  Object.assign(FIL_GEN, {cat:"전체", prod:"전체", skip:"전체", sec:"전체", dev:"전체"});
-  Object.assign(FIL_KBO, {cat:"전체", prod:"전체", skip:"전체", sec:"전체", dev:"전체"});
+  Object.assign(FIL_GEN, {cat:"전체", prod:"전체", skip:"전체", sec:"전체"});
+  Object.assign(FIL_KBO, {cat:"전체", prod:"전체", skip:"전체", sec:"전체"});
   const g = document.querySelector(".guide");
   if(g) g.open = false;
   renderTable(document.getElementById("tgen"), filterRows(res.gen, FIL_GEN), true, GEN_MAT_MAP, FIL_GEN);
-  renderDeviceTable("dgen","dgenwrap", filterDevRows(res.devGen, FIL_GEN));
+  renderDeviceTable("dgen","dgenwrap", res.devGen);
   renderTable(document.getElementById("tkbo"), filterRows(res.kbo, FIL_KBO), true, KBO_MAT_MAP, FIL_KBO);
-  renderDeviceTable("dkbo","dkbowrap", filterDevRows(res.devKbo, FIL_KBO));
+  renderDeviceTable("dkbo","dkbowrap", res.devKbo);
   buildFilters(res);
   if(res.other && res.other.length){
     document.getElementById("otherwrap").classList.remove("hidden");
@@ -1031,8 +1034,6 @@ function buildPublicHTML(res){
     return `<section class="filterbar">
         <span class="filabel">필터</span>
         <div class="filterset">
-          <div class="filgroup"><label class="fillabel">업종</label>
-            <select class="filsel" id="${prefix}_cat"><option value="전체">전체</option></select></div>
           <div class="filgroup"><label class="fillabel">상품</label>
             <select class="filsel" id="${prefix}_prod"><option value="전체">전체</option></select></div>
           <div class="filgroup"><label class="fillabel">스킵 구분</label>
@@ -1041,26 +1042,22 @@ function buildPublicHTML(res){
             </select></div>
           <div class="filgroup"><label class="fillabel">소재 길이</label>
             <select class="filsel" id="${prefix}_sec"><option value="전체">전체</option></select></div>
-          <div class="filgroup"><label class="fillabel">디바이스</label>
-            <select class="filsel" id="${prefix}_dev">
-              <option value="전체">전체</option><option value="Mobile">Mobile</option>
-              <option value="CTV">CTV</option><option value="PC">PC</option>
-            </select></div>
+          <div class="filgroup"><label class="fillabel">업종</label>
+            <select class="filsel" id="${prefix}_cat"><option value="전체">전체</option></select></div>
           <button id="${prefix}_reset" class="filresetbtn">↺ 초기화</button>
         </div>
       </section>`;
   }
 
   const pubJS = `const D=${JSON.stringify(pubData)};
-const FG={cat:"전체",prod:"전체",skip:"전체",sec:"전체",dev:"전체"};
-const FK={cat:"전체",prod:"전체",skip:"전체",sec:"전체",dev:"전체"};
+const FG={cat:"전체",prod:"전체",skip:"전체",sec:"전체"};
+const FK={cat:"전체",prod:"전체",skip:"전체",sec:"전체"};
 function vtrColor(v){if(v===null)return null;const r=["#FBE3E3","#FCEBD2","#DEF3E8","#C3EAD7","#A6E1C5"],f=["#A12626","#8A5410","#1B6E52","#13694A","#0C5238"];let i=v<50?0:v<80?1:v<90?2:v<95?3:4;return{bg:r[i],fg:f[i]};}
 function ctrColor(v){const r=["#E9F0FB","#DAE7F8","#C2D8F2","#A6C6EC","#88B3E5"],f=["#2B5BA8","#27559C","#1F4C8E","#1A4380","#123569"];let i=Math.min(Math.floor(Math.min(v/0.5,1)*5),4);return{bg:r[i],fg:f[i]};}
 function variantLabel(v){if(v==="-")return'<span class="vtag">–</span>';if(v==="구분 미표기")return'<span class="vtag">구분 미표기</span>';if(v==="논스킵 (초수 미표기)")return'<span class="vtag">논스킵 (초수 미표기)</span>';return v;}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function filterRows(rows,fil){return rows.filter(r=>{if(fil.prod!=="전체"&&r.prod!==fil.prod)return false;if(fil.skip!=="전체"){const ns=r.variant.startsWith("논스킵"),sk=r.variant==="스킵";if(fil.skip==="논스킵"&&!ns)return false;if(fil.skip==="스킵"&&!sk)return false;}if(fil.sec!=="전체"&&!r.variant.includes(fil.sec))return false;return true;});}
-function filterDevRows(rows,fil){if(!rows||!rows.length)return rows;if(!fil||fil.dev==="전체")return rows;return rows.filter(r=>r.device===fil.dev);}
-function updActive(px){["cat","prod","skip","sec","dev"].forEach(k=>{const el=document.getElementById(px+"_"+k);if(el)el.classList.toggle("active",el.value!=="전체");});}
+function updActive(px){["cat","prod","skip","sec"].forEach(k=>{const el=document.getElementById(px+"_"+k);if(el)el.classList.toggle("active",el.value!=="전체");});}
 function renderTable(el,rows,matMap,fil){
   fil=fil||{cat:"전체"};
   const wrap=el.closest(".tblwrap");
@@ -1090,12 +1087,11 @@ function buildGroupFil(px,fil,rows,order,applyFn){
   document.getElementById(px+"_prod").onchange=e=>{fil.prod=e.target.value;applyFn();};
   document.getElementById(px+"_skip").onchange=e=>{fil.skip=e.target.value;applyFn();};
   document.getElementById(px+"_sec").onchange=e=>{fil.sec=e.target.value;applyFn();};
-  document.getElementById(px+"_dev").onchange=e=>{fil.dev=e.target.value;applyFn();};
-  document.getElementById(px+"_reset").onclick=()=>{fil.cat="전체";fil.prod="전체";fil.skip="전체";fil.sec="전체";fil.dev="전체";["cat","prod","skip","sec","dev"].forEach(k=>{document.getElementById(px+"_"+k).value="전체";});applyFn();};
+  document.getElementById(px+"_reset").onclick=()=>{fil.cat="전체";fil.prod="전체";fil.skip="전체";fil.sec="전체";["cat","prod","skip","sec"].forEach(k=>{document.getElementById(px+"_"+k).value="전체";});applyFn();};
   updActive(px);
 }
-function applyG(){updActive("filg");renderTable(document.getElementById("tgen"),filterRows(D.gen,FG),D.genMatMap,FG);renderDev("dgen","dgenwrap",filterDevRows(D.devGen,FG));}
-function applyK(){updActive("filk");renderTable(document.getElementById("tkbo"),filterRows(D.kbo,FK),D.kboMatMap,FK);renderDev("dkbo","dkbowrap",filterDevRows(D.devKbo,FK));}
+function applyG(){updActive("filg");renderTable(document.getElementById("tgen"),filterRows(D.gen,FG),D.genMatMap,FG);renderDev("dgen","dgenwrap",D.devGen);}
+function applyK(){updActive("filk");renderTable(document.getElementById("tkbo"),filterRows(D.kbo,FK),D.kboMatMap,FK);renderDev("dkbo","dkbowrap",D.devKbo);}
 buildGroupFil("filg",FG,D.gen,D.orderGen,applyG);
 buildGroupFil("filk",FK,D.kbo,D.orderKbo,applyK);
 renderTable(document.getElementById("tgen"),D.gen,D.genMatMap,FG);
@@ -1152,6 +1148,22 @@ ${pubJS}
 </html>`;
 }
 
+let _previewUrl = null;
+document.getElementById("preview").addEventListener("click", ()=>{
+  if(!LAST_RESULT){ alert("먼저 CSV를 업로드해 주세요."); return; }
+  const html = buildPublicHTML(LAST_RESULT);
+  if(_previewUrl) URL.revokeObjectURL(_previewUrl);
+  _previewUrl = URL.createObjectURL(new Blob([html], {type:"text/html;charset=utf-8"}));
+  document.getElementById("previewFrame").src = _previewUrl;
+  document.getElementById("previewModal").classList.add("open");
+});
+document.getElementById("previewClose").addEventListener("click", ()=>{
+  document.getElementById("previewModal").classList.remove("open");
+});
+document.getElementById("previewModal").addEventListener("click", e=>{
+  if(e.target === document.getElementById("previewModal"))
+    document.getElementById("previewModal").classList.remove("open");
+});
 document.getElementById("export").addEventListener("click", ()=>{
   if(!LAST_RESULT){ alert("먼저 CSV를 업로드해 주세요."); return; }
   const html = buildPublicHTML(LAST_RESULT);
