@@ -1173,14 +1173,28 @@ document.getElementById("previewModal").addEventListener("click", e=>{
   if(e.target === document.getElementById("previewModal"))
     document.getElementById("previewModal").classList.remove("open");
 });
-document.getElementById("export").addEventListener("click", ()=>{
+document.getElementById("export").addEventListener("click", async ()=>{
   if(!LAST_RESULT){ alert("먼저 CSV를 업로드해 주세요."); return; }
   const html = buildPublicHTML(LAST_RESULT);
+  if(window.showSaveFilePicker){
+    try{
+      const handle = await window.showSaveFilePicker({
+        suggestedName: "tving_benchmark.html",
+        types:[{description:"HTML 파일", accept:{"text/html":[".html"]}}]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(html);
+      await writable.close();
+      alert("저장 완료! deploy.bat을 실행하면 배포됩니다.");
+      return;
+    }catch(e){ if(e.name==="AbortError") return; }
+  }
+  // fallback: 구형 브라우저
   const blob = new Blob([html], {type:"text/html;charset=utf-8"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "tving_vtr_ctr_public_" + new Date().toISOString().slice(0,10) + ".html";
+  a.download = "tving_benchmark.html";
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 });
