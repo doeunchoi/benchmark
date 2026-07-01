@@ -127,6 +127,15 @@
   .group.kbo th.cathdr{background:var(--kbo-soft) !important; color:var(--kbo) !important;}
   td.catcell{background:rgba(59,111,224,.04);}
   .group.kbo td.catcell{background:rgba(224,104,59,.04);}
+  /* 월별 탭 */
+  .monthtabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px;
+    border-bottom:1px solid var(--line); padding-bottom:0;}
+  .mtab{font-size:13px; font-weight:600; padding:9px 16px; border:1px solid var(--line);
+    border-bottom:none; border-radius:9px 9px 0 0; background:var(--panel2); color:var(--text2);
+    cursor:pointer; margin-bottom:-1px; transition:.12s;}
+  .mtab:hover{background:var(--line);}
+  .mtab.active{background:var(--panel); color:var(--accent); border-color:var(--line);
+    border-bottom:1px solid var(--panel);}
   /* 미리보기 모달 */
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;
     align-items:flex-start;justify-content:center;padding:24px;}
@@ -154,11 +163,12 @@
     <div class="guidebody">
       <p><b>1) raw 데이터 추출 (TAS 리포트 → 일반 데이터)</b></p>
       <ul>
-        <li>기간: 분석할 월의 1일~말일 (예: May 01, 2026 ~ May 31, 2026), 표준시 <b>Asia/Seoul</b></li>
+        <li>기간: 분석할 월의 1일~말일 (예: May 01, 2026 ~ May 31, 2026), 표준시 <b>Asia/Seoul</b>
+          — <b>여러 달을 한 번에 보려면 기간을 여러 달로 잡으세요</b> (예: Mar 01 ~ May 31)</li>
         <li>그룹: <b>캠페인 템플릿</b>, <b>디바이스 OS</b>, <b>카테고리</b>, <b>인벤토리 종류</b> 체크</li>
         <li>지표: <b>매체 집행 금액</b>, <b>노출수</b>, <b>클릭수</b>, <b>CTR</b>, <b>영상 시청 완료</b>, <b>VTR</b> 체크</li>
-        <li>시간: <b>월</b> 체크</li>
-        <li>CSV로 내려받아 아래에 업로드</li>
+        <li>시간: <b>월</b> 체크 — 이 값 기준으로 <b>월별 탭</b>이 자동 생성됩니다 (최신월이 먼저 표시)</li>
+        <li>CSV로 내려받아 아래에 업로드 (여러 달이 담겨 있으면 상단에 월 탭이 생깁니다)</li>
       </ul>
       <p><b>2) 자동 집계 규칙</b></p>
       <ul>
@@ -185,6 +195,8 @@
       <button id="export" class="exportbtn">⬇ 공개용 HTML 내보내기</button>
       <span class="reset" id="reset">다른 파일 올리기</span>
     </div>
+
+    <div id="monthtabs" class="monthtabs hidden"></div>
 
     <section class="group gen">
       <div class="ghead">
@@ -307,7 +319,8 @@ const COL = {
   os:       ["디바이스 OS","디바이스OS","OS","device","디바이스"],
   imp:      ["노출수","노출","impressions"],
   clk:      ["클릭수","클릭","clicks"],
-  vcv:      ["영상 시청 완료","영상시청완료","재생 완료","completed","video_completions"]
+  vcv:      ["영상 시청 완료","영상시청완료","재생 완료","completed","video_completions"],
+  month:    ["월","년월","연월","기준월","month","시간"]
 };
 
 // 디바이스 OS → 표시 그룹 (IOS+ANDROID=Mobile, MACOS는 PC로)
@@ -449,6 +462,41 @@ function parseCSV(text){
 }
 
 /* ============================================================
+   월(month) 파싱 — 정렬 키 / 표시 라벨
+   ============================================================ */
+const MONTH_NAMES = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+function monthSortKey(s){
+  s = String(s).trim();
+  const ym = s.match(/(\d{4})\s*[-./년]?\s*(\d{1,2})/);   // 2026-05, 2026.5, 2026년 5월, 202605
+  if(ym) return parseInt(ym[1])*100 + parseInt(ym[2]);
+  const low = s.toLowerCase();
+  for(const k in MONTH_NAMES){
+    if(low.includes(k)){
+      const y = low.match(/(\d{4})/);
+      return y ? parseInt(y[1])*100 + MONTH_NAMES[k] : MONTH_NAMES[k];
+    }
+  }
+  const mo = s.match(/^(\d{1,2})\s*월/);                   // "5월"
+  if(mo) return parseInt(mo[1]);
+  return s; // 파싱 실패 시 원문 기준 사전식 정렬
+}
+function monthLabel(s){
+  s = String(s).trim();
+  const ym = s.match(/(\d{4})\s*[-./년]?\s*(\d{1,2})/);
+  if(ym) return ym[1] + "." + String(parseInt(ym[2])).padStart(2,"0");
+  const low = s.toLowerCase();
+  for(const k in MONTH_NAMES){
+    if(low.includes(k)){
+      const y = low.match(/(\d{4})/), mm = String(MONTH_NAMES[k]).padStart(2,"0");
+      return y ? y[1] + "." + mm : mm + "월";
+    }
+  }
+  const mo = s.match(/^(\d{1,2})\s*월/);
+  if(mo) return parseInt(mo[1]) + "월";
+  return s;
+}
+
+/* ============================================================
    메인 처리
    ============================================================ */
 function process(text){
@@ -462,6 +510,7 @@ function process(text){
   const cClk = pickCol(headers, COL.clk);
   const cVcv = pickCol(headers, COL.vcv);
   const cSpend = pickCol(headers, ["매체 집행 금액","매체집행금액","집행 금액","spend","cost"]);
+  const cMonth = pickCol(headers, COL.month);
   const missing = [];
   if(!cTpl) missing.push("캠페인 템플릿");
   if(!cImp) missing.push("노출수");
@@ -476,6 +525,8 @@ function process(text){
     return o;
   });
 
+  // 월 컬럼이 있으면 월별로 분리 집계 (없으면 전체 한 벌)
+  function aggregate(data){
   // 집계: (grp, prod, variant)
   const agg = {};      // key -> {grp,prod,variant,imp,clk,vcv}
   const catSpend = {}; // 미사용(집행금액 표기 안 함) — 편차 계산용 버킷만 사용
@@ -653,6 +704,28 @@ function process(text){
     totalKept, excluded, spread,
     excTemplates: [...excNames].sort()
   };
+  } // end aggregate
+
+  // 월별 탭: 최신월 → 오래된월 순. 월 컬럼이 없거나 값이 하나뿐이면 단일 표시.
+  let monthTabs = null;
+  if(cMonth){
+    const groups = {};
+    for(const d of data){
+      const mv = (d[cMonth]||"").trim();
+      if(!mv) continue;
+      (groups[mv] = groups[mv] || []).push(d);
+    }
+    const keys = Object.keys(groups);
+    if(keys.length){
+      monthTabs = keys.map(k=>({raw:k, sort:monthSortKey(k)}))
+          .sort((a,b)=> a.sort<b.sort ? 1 : a.sort>b.sort ? -1 : 0)   // 내림차순(최신 먼저)
+          .map(({raw})=> ({key:raw, label:monthLabel(raw), res:aggregate(groups[raw])}));
+    }
+  }
+  const tabs = (monthTabs && monthTabs.length)
+    ? monthTabs
+    : [{key:"__all__", label:"전체", res:aggregate(data)}];
+  return { tabs, multi: tabs.length > 1 };
 }
 
 /* ============================================================
@@ -797,7 +870,8 @@ function renderDeviceTable(elId, wrapId, rows){
   el.innerHTML = buildDeviceTableInner(rows);
 }
 
-let LAST_RESULT = null;
+let LAST_RESULT = null;   // 현재 표시 중인 월(res)
+let PROCESSED = null;     // process() 결과 전체 {tabs, multi}
 let LAST_FILENAME = null;
 function extractDateFromFilename(filename){
   const m = filename.match(/(\d{8})-(\d{8})/);
@@ -892,15 +966,14 @@ function buildFilters(res){
   buildGroupFilters(res, "filk", FIL_KBO, res.kbo, ORDER_KBO, applyKboFilters, "filterbar_kbo");
 }
 
-function show(res){
+// 단일 월(res) 렌더링 — 탭 전환 시 재사용
+function renderResult(res){
   LAST_RESULT = res;
   GEN_MAT_MAP = buildMatMap(res.matrix.gen);
   KBO_MAT_MAP = buildMatMap(res.matrix.kbo);
   // 필터 초기화
   Object.assign(FIL_GEN, {cat:"전체", prod:"전체", skip:"전체", sec:"전체"});
   Object.assign(FIL_KBO, {cat:"전체", prod:"전체", skip:"전체", sec:"전체"});
-  const g = document.querySelector(".guide");
-  if(g) g.open = false;
   renderTable(document.getElementById("tgen"), filterRows(res.gen, FIL_GEN), true, GEN_MAT_MAP, FIL_GEN);
   renderDeviceTable("dgen","dgenwrap", res.devGen);
   renderTable(document.getElementById("tkbo"), filterRows(res.kbo, FIL_KBO), true, KBO_MAT_MAP, FIL_KBO);
@@ -913,6 +986,29 @@ function show(res){
     document.getElementById("otherwrap").classList.add("hidden");
   }
   renderExcluded(res.excTemplates);
+}
+
+// 월별 탭 바 구성
+function buildMonthTabs(processed){
+  const bar = document.getElementById("monthtabs");
+  if(!processed.multi){ bar.classList.add("hidden"); bar.innerHTML=""; return; }
+  bar.classList.remove("hidden");
+  bar.innerHTML = processed.tabs.map((t,i)=>
+    `<button class="mtab${i===0?" active":""}" data-i="${i}">${escapeHTML(t.label)}</button>`).join("");
+  bar.querySelectorAll(".mtab").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      bar.querySelectorAll(".mtab").forEach(x=>x.classList.toggle("active", x===b));
+      renderResult(processed.tabs[+b.dataset.i].res);
+    });
+  });
+}
+
+function show(processed){
+  PROCESSED = processed;
+  const g = document.querySelector(".guide");
+  if(g) g.open = false;
+  buildMonthTabs(processed);
+  renderResult(processed.tabs[0].res);   // 기본: 전체 합산
   document.getElementById("dash").classList.remove("hidden");
   document.getElementById("drop").classList.add("hidden");
   document.getElementById("err").textContent="";
@@ -965,6 +1061,7 @@ document.getElementById("reset").addEventListener("click", ()=>{
   document.getElementById("drop").classList.remove("hidden");
   document.getElementById("filterbar_gen").classList.add("hidden");
   document.getElementById("filterbar_kbo").classList.add("hidden");
+  document.getElementById("monthtabs").classList.add("hidden");
   const g = document.querySelector(".guide");
   if(g) g.open = true;
   fileInput.value="";
@@ -976,20 +1073,25 @@ document.getElementById("reset").addEventListener("click", ()=>{
    - 업로드 기능 / classify·process·parseCSV 로직 / 원본 CSV
      / 노출수·집행금액·행수는 일절 포함하지 않음
    ============================================================ */
-function buildPublicHTML(res){
+function buildPublicHTML(processed){
   const today = new Date().toISOString().slice(0,10);
   const dateLabel = LAST_FILENAME ? (extractDateFromFilename(LAST_FILENAME) || today) : today;
 
-  // 공개 데이터: CPM/CPC/CPV/tpls 제외
+  // 공개 데이터: CPM/CPC/CPV/tpls 제외 · 월별로 한 벌씩
   function pubRows(rows){ return rows.map(r=>({prod:r.prod,variant:r.variant,vtr:r.vtr,ctr:r.ctr})); }
+  const pubMonths = processed.tabs.map(t=>({
+    key: t.key, label: t.label,
+    gen: pubRows(t.res.gen),
+    kbo: pubRows(t.res.kbo),
+    devGen: t.res.devGen||[],
+    devKbo: t.res.devKbo||[],
+    matCats: t.res.matrix.cats||[],
+    genMatMap: buildMatMap(t.res.matrix.gen),
+    kboMatMap: buildMatMap(t.res.matrix.kbo)
+  }));
   const pubData = {
-    gen: pubRows(res.gen),
-    kbo: pubRows(res.kbo),
-    devGen: res.devGen||[],
-    devKbo: res.devKbo||[],
-    matCats: res.matrix.cats||[],
-    genMatMap: GEN_MAT_MAP,
-    kboMatMap: KBO_MAT_MAP,
+    months: pubMonths,
+    multi: processed.multi,
     orderGen: ORDER_GEN,
     orderKbo: ORDER_KBO
   };
@@ -1054,7 +1156,13 @@ function buildPublicHTML(res){
     background:var(--gen-soft) !important;color:var(--gen) !important;font-size:11px;}
   .group.kbo th.cathdr{background:var(--kbo-soft) !important;color:var(--kbo) !important;}
   td.catcell{background:rgba(59,111,224,.04);}
-  .group.kbo td.catcell{background:rgba(224,104,59,.04);}`;
+  .group.kbo td.catcell{background:rgba(224,104,59,.04);}
+  .monthtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;border-bottom:1px solid var(--line);}
+  .monthtabs.hidden{display:none;}
+  .mtab{font-size:13px;font-weight:600;padding:9px 16px;border:1px solid var(--line);border-bottom:none;
+    border-radius:9px 9px 0 0;background:var(--panel2);color:var(--text2);cursor:pointer;margin-bottom:-1px;transition:.12s;}
+  .mtab:hover{background:var(--line);}
+  .mtab.active{background:var(--panel);color:var(--accent);border-color:var(--line);border-bottom:1px solid var(--panel);}`;
 
   function filterbarHTML(prefix){
     return `<section class="filterbar">
@@ -1078,6 +1186,8 @@ function buildPublicHTML(res){
   const pubJS = `const D=${JSON.stringify(pubData)};
 const FG={cat:"전체",prod:"전체",skip:"전체",sec:"전체"};
 const FK={cat:"전체",prod:"전체",skip:"전체",sec:"전체"};
+let AI=0;
+function cur(){return D.months[AI];}
 function vtrColor(v){if(v===null)return null;const r=["#FBE3E3","#FCEBD2","#DEF3E8","#C3EAD7","#A6E1C5"],f=["#A12626","#8A5410","#1B6E52","#13694A","#0C5238"];let i=v<50?0:v<80?1:v<90?2:v<95?3:4;return{bg:r[i],fg:f[i]};}
 function ctrColor(v){const r=["#E9F0FB","#DAE7F8","#C2D8F2","#A6C6EC","#88B3E5"],f=["#2B5BA8","#27559C","#1F4C8E","#1A4380","#123569"];let i=Math.min(Math.floor(Math.min(v/0.5,1)*5),4);return{bg:r[i],fg:f[i]};}
 function variantLabel(v){if(v==="-")return'<span class="vtag">–</span>';if(v==="구분 미표기")return'<span class="vtag">구분 미표기</span>';if(v==="논스킵 (초수 미표기)")return'<span class="vtag">논스킵 (초수 미표기)</span>';return v;}
@@ -1106,7 +1216,7 @@ function renderTable(el,rows,matMap,fil){
 function devTbody(rows){let h='<thead><tr><th>디바이스</th><th class="num">노출 비중</th><th class="num">VTR</th><th class="num">CTR</th></tr></thead><tbody>';for(const r of rows){const vc=vtrColor(r.vtr),cc=ctrColor(r.ctr);h+='<tr><td class="pname">'+r.device+'</td><td class="num"><span class="sharebar" style="--w:'+Math.round(r.share)+'%;">'+r.share.toFixed(1)+'%</span></td><td class="num"><span class="chip" style="background:'+vc.bg+';color:'+vc.fg+';">'+r.vtr.toFixed(2)+'%</span></td><td class="num"><span class="chip" style="background:'+cc.bg+';color:'+cc.fg+';">'+r.ctr.toFixed(3)+'%</span></td></tr>';}return h+"</tbody>";}
 function renderDev(elId,wrapId,rows){const el=document.getElementById(elId),wp=document.getElementById(wrapId);if(!rows||!rows.length){if(wp)wp.style.display="none";return;}if(wp)wp.style.display="";el.innerHTML=devTbody(rows);}
 function buildGroupFil(px,fil,rows,order,applyFn){
-  const cs=document.getElementById(px+"_cat");cs.innerHTML='<option value="전체">전체</option>'+(D.matCats||[]).map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join("");cs.value=fil.cat;
+  const cs=document.getElementById(px+"_cat");cs.innerHTML='<option value="전체">전체</option>'+(cur().matCats||[]).map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join("");cs.value=fil.cat;
   const ps=document.getElementById(px+"_prod"),pd=order.filter(p=>rows.some(r=>r.prod===p));ps.innerHTML='<option value="전체">전체</option>'+pd.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join("");ps.value=fil.prod;
   const sc=[...new Set(rows.flatMap(r=>{const m=r.variant.match(/(\\d+)초/);return m?[m[1]+"초"]:[];}))].sort((a,b)=>parseInt(a)-parseInt(b));const ss=document.getElementById(px+"_sec");ss.innerHTML='<option value="전체">전체</option>'+sc.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join("");ss.value=fil.sec;
   document.getElementById(px+"_cat").onchange=e=>{fil.cat=e.target.value;applyFn();};
@@ -1116,14 +1226,27 @@ function buildGroupFil(px,fil,rows,order,applyFn){
   document.getElementById(px+"_reset").onclick=()=>{fil.cat="전체";fil.prod="전체";fil.skip="전체";fil.sec="전체";["cat","prod","skip","sec"].forEach(k=>{document.getElementById(px+"_"+k).value="전체";});applyFn();};
   updActive(px);
 }
-function applyG(){updActive("filg");renderTable(document.getElementById("tgen"),filterRows(D.gen,FG),D.genMatMap,FG);renderDev("dgen","dgenwrap",D.devGen);}
-function applyK(){updActive("filk");renderTable(document.getElementById("tkbo"),filterRows(D.kbo,FK),D.kboMatMap,FK);renderDev("dkbo","dkbowrap",D.devKbo);}
-buildGroupFil("filg",FG,D.gen,D.orderGen,applyG);
-buildGroupFil("filk",FK,D.kbo,D.orderKbo,applyK);
-renderTable(document.getElementById("tgen"),D.gen,D.genMatMap,FG);
-renderDev("dgen","dgenwrap",D.devGen);
-renderTable(document.getElementById("tkbo"),D.kbo,D.kboMatMap,FK);
-renderDev("dkbo","dkbowrap",D.devKbo);`;
+function applyG(){const M=cur();updActive("filg");renderTable(document.getElementById("tgen"),filterRows(M.gen,FG),M.genMatMap,FG);renderDev("dgen","dgenwrap",M.devGen);}
+function applyK(){const M=cur();updActive("filk");renderTable(document.getElementById("tkbo"),filterRows(M.kbo,FK),M.kboMatMap,FK);renderDev("dkbo","dkbowrap",M.devKbo);}
+function renderAll(){
+  const M=cur();
+  FG.cat="전체";FG.prod="전체";FG.skip="전체";FG.sec="전체";
+  FK.cat="전체";FK.prod="전체";FK.skip="전체";FK.sec="전체";
+  buildGroupFil("filg",FG,M.gen,D.orderGen,applyG);
+  buildGroupFil("filk",FK,M.kbo,D.orderKbo,applyK);
+  renderTable(document.getElementById("tgen"),M.gen,M.genMatMap,FG);
+  renderDev("dgen","dgenwrap",M.devGen);
+  renderTable(document.getElementById("tkbo"),M.kbo,M.kboMatMap,FK);
+  renderDev("dkbo","dkbowrap",M.devKbo);
+}
+function buildTabs(){
+  if(!D.multi)return;
+  const bar=document.getElementById("monthtabs");bar.classList.remove("hidden");
+  bar.innerHTML=D.months.map((m,i)=>'<button class="mtab'+(i===0?' active':'')+'" data-i="'+i+'">'+esc(m.label)+'</button>').join("");
+  bar.querySelectorAll(".mtab").forEach(b=>b.onclick=()=>{AI=+b.dataset.i;bar.querySelectorAll(".mtab").forEach(x=>x.classList.toggle("active",x===b));renderAll();});
+}
+buildTabs();
+renderAll();`;
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -1138,6 +1261,8 @@ renderDev("dkbo","dkbowrap",D.devKbo);`;
   <h1>📊 TVING 광고 상품별 VTR / CTR</h1>
   <p class="sub">상품·스킵·초수 기준 효율 지표</p>
   <p class="stamp">기준일: ${dateLabel}</p>
+
+  <div id="monthtabs" class="monthtabs hidden"></div>
 
   <section class="group gen">
     <div class="ghead"><h2>일반형 광고</h2><span class="gpill gen">GENERAL</span></div>
@@ -1173,8 +1298,8 @@ ${pubJS}
 
 let _previewUrl = null;
 document.getElementById("preview").addEventListener("click", ()=>{
-  if(!LAST_RESULT){ alert("먼저 CSV를 업로드해 주세요."); return; }
-  const html = buildPublicHTML(LAST_RESULT);
+  if(!PROCESSED){ alert("먼저 CSV를 업로드해 주세요."); return; }
+  const html = buildPublicHTML(PROCESSED);
   if(_previewUrl) URL.revokeObjectURL(_previewUrl);
   _previewUrl = URL.createObjectURL(new Blob([html], {type:"text/html;charset=utf-8"}));
   document.getElementById("previewFrame").src = _previewUrl;
@@ -1188,8 +1313,8 @@ document.getElementById("previewModal").addEventListener("click", e=>{
     document.getElementById("previewModal").classList.remove("open");
 });
 document.getElementById("export").addEventListener("click", async ()=>{
-  if(!LAST_RESULT){ alert("먼저 CSV를 업로드해 주세요."); return; }
-  const html = buildPublicHTML(LAST_RESULT);
+  if(!PROCESSED){ alert("먼저 CSV를 업로드해 주세요."); return; }
+  const html = buildPublicHTML(PROCESSED);
   if(window.showSaveFilePicker){
     try{
       const handle = await window.showSaveFilePicker({
