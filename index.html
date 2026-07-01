@@ -136,6 +136,19 @@
   .mtab:hover{background:var(--line);}
   .mtab.active{background:var(--panel); color:var(--accent); border-color:var(--line);
     border-bottom:1px solid var(--panel);}
+  /* 다중 선택 (체크박스 드롭다운) */
+  .ms{position:relative; min-width:110px; max-width:180px;}
+  .ms-btn{width:100%; text-align:left; font-size:13px; padding:7px 28px 7px 10px; border-radius:8px;
+    border:1px solid var(--line2); color:var(--text); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239098A3'/%3E%3C/svg%3E") no-repeat right 10px center;}
+  .ms.active .ms-btn{border-color:var(--gen); color:var(--gen); font-weight:600; background-color:var(--gen-soft);}
+  .group.kbo .ms.active .ms-btn{border-color:var(--kbo); color:var(--kbo); background-color:var(--kbo-soft);}
+  .ms-panel{position:absolute; z-index:50; top:calc(100% + 4px); left:0; min-width:100%; max-height:240px; overflow:auto;
+    background:var(--panel); border:1px solid var(--line2); border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.12); padding:6px;}
+  .ms-panel.hidden{display:none;}
+  .ms-opt{display:flex; align-items:center; gap:7px; padding:5px 8px; font-size:13px; border-radius:6px; cursor:pointer; white-space:nowrap;}
+  .ms-opt:hover{background:var(--panel2);}
+  .ms-opt input{cursor:pointer; margin:0;}
   /* 미리보기 모달 */
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;
     align-items:flex-start;justify-content:center;padding:24px;}
@@ -209,7 +222,7 @@
         <div class="filterset">
           <div class="filgroup">
             <label class="fillabel">상품</label>
-            <select class="filsel" id="filg_prod"><option value="전체">전체</option></select>
+            <div class="ms" id="filg_prod"><button type="button" class="ms-btn">전체</button><div class="ms-panel hidden"></div></div>
           </div>
           <div class="filgroup">
             <label class="fillabel">스킵 구분</label>
@@ -225,7 +238,7 @@
           </div>
           <div class="filgroup">
             <label class="fillabel">업종</label>
-            <select class="filsel" id="filg_cat"><option value="전체">전체</option></select>
+            <div class="ms" id="filg_cat"><button type="button" class="ms-btn">전체</button><div class="ms-panel hidden"></div></div>
           </div>
           <button id="filg_reset" class="filresetbtn">↺ 초기화</button>
         </div>
@@ -252,7 +265,7 @@
         <div class="filterset">
           <div class="filgroup">
             <label class="fillabel">상품</label>
-            <select class="filsel" id="filk_prod"><option value="전체">전체</option></select>
+            <div class="ms" id="filk_prod"><button type="button" class="ms-btn">전체</button><div class="ms-panel hidden"></div></div>
           </div>
           <div class="filgroup">
             <label class="fillabel">스킵 구분</label>
@@ -268,7 +281,7 @@
           </div>
           <div class="filgroup">
             <label class="fillabel">업종</label>
-            <select class="filsel" id="filk_cat"><option value="전체">전체</option></select>
+            <div class="ms" id="filk_cat"><button type="button" class="ms-btn">전체</button><div class="ms-panel hidden"></div></div>
           </div>
           <button id="filk_reset" class="filresetbtn">↺ 초기화</button>
         </div>
@@ -774,23 +787,22 @@ function renderExcluded(excTemplates){
 }
 
 // matMap: {"prod||variant": cells} — 업종 셀 데이터
-// fil: {cat, ...} — 필터 상태. cat!=="전체" 시 업종 컬럼 표시
+// fil: {cat:[...], prod:[...], ...} — cat/prod는 배열(빈 배열=전체). 선택 업종마다 컬럼 쌍 추가
 // internal: true면 CPM/CPC/CPV + 템플릿 토글 표시
 function renderTable(el, rows, internal, matMap, fil){
   if(!rows.length){ el.closest(".tblwrap").style.display="none"; return; }
   el.closest(".tblwrap").style.display="";
-  fil = fil || {cat:"전체"};
-  const showCat = !!(matMap && fil.cat !== "전체");
-  const catLabel = showCat ? escapeHTML(fil.cat) : "";
+  fil = fil || {cat:[]};
+  const showCats = (matMap && Array.isArray(fil.cat) && fil.cat.length) ? fil.cat : [];
   const showCost = !!internal;
   const showExpand = !!internal;
-  const colspan = (showExpand?1:0) + 2 + 2 + (showCat?2:0) + (showCost?3:0);
+  const colspan = (showExpand?1:0) + 2 + 2 + showCats.length*2 + (showCost?3:0);
   const cpHdr = showCost ? "<th class='num'>CPM</th><th class='num'>CPC</th><th class='num'>CPV</th>" : "";
   const expandHdr = showExpand ? "<th class='exp'></th>" : "";
-  const catHdr = showCat
-    ? `<th class='num cathdr' title='${catLabel} VTR'>${catLabel} VTR</th>`
-    + `<th class='num cathdr' title='${catLabel} CTR'>${catLabel} CTR</th>`
-    : "";
+  const catHdr = showCats.map(cat=>{
+    const cl = escapeHTML(cat);
+    return `<th class='num cathdr' title='${cl} VTR'>${cl} VTR</th><th class='num cathdr' title='${cl} CTR'>${cl} CTR</th>`;
+  }).join("");
   let h="<thead><tr>"+expandHdr+"<th>상품</th><th>구분</th><th class='num'>VTR</th><th class='num'>CTR</th>"+catHdr+cpHdr+"</tr></thead><tbody>";
   let prev=null, idc=0;
   const base = el.id || "t";
@@ -803,9 +815,9 @@ function renderTable(el, rows, internal, matMap, fil){
     if(r.ctr===null) ccell = '<span class="vtag">N/A</span>';
     else { const cc=ctrColor(r.ctr); ccell = `<span class="chip" style="background:${cc.bg};color:${cc.fg};">${r.ctr.toFixed(3)}%</span>`; }
     let catCells = "";
-    if(showCat){
+    for(const cat of showCats){
       const key = r.prod+"||"+r.variant;
-      const c = matMap[key] && matMap[key][fil.cat];
+      const c = matMap[key] && matMap[key][cat];
       if(c){
         const dim = c.thin ? "opacity:.5;" : "";
         const cv = (c.vtr!==null && c.vtr!==undefined) ? vtrColor(c.vtr) : null;
@@ -815,9 +827,9 @@ function renderTable(el, rows, internal, matMap, fil){
         let ctrCell;
         if(r.ctr===null) ctrCell = `<td class="num catcell"><span class="vtag">N/A</span></td>`;
         else { const cc2=ctrColor(c.ctr); ctrCell = `<td class="num catcell"><span class="chip" style="background:${cc2.bg};color:${cc2.fg};${dim}">${c.ctr.toFixed(3)}%</span></td>`; }
-        catCells = vtrCell + ctrCell;
+        catCells += vtrCell + ctrCell;
       } else {
-        catCells = `<td class="num catcell"><span class="vtag">–</span></td><td class="num catcell"><span class="vtag">–</span></td>`;
+        catCells += `<td class="num catcell"><span class="vtag">–</span></td><td class="num catcell"><span class="vtag">–</span></td>`;
       }
     }
     let expCell="", cpCells="";
@@ -879,9 +891,9 @@ function extractDateFromFilename(filename){
   const fmt = s => s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8);
   return fmt(m[1])+' ~ '+fmt(m[2]);
 }
-// 일반형 / KBO 필터 상태 분리
-const FIL_GEN = { cat:"전체", prod:"전체", skip:"전체", sec:"전체" };
-const FIL_KBO = { cat:"전체", prod:"전체", skip:"전체", sec:"전체" };
+// 일반형 / KBO 필터 상태 분리 (cat·prod은 배열: 빈 배열=전체)
+const FIL_GEN = { cat:[], prod:[], skip:"전체", sec:"전체" };
+const FIL_KBO = { cat:[], prod:[], skip:"전체", sec:"전체" };
 let GEN_MAT_MAP = {}, KBO_MAT_MAP = {};
 
 function buildMatMap(matRows){
@@ -892,7 +904,7 @@ function buildMatMap(matRows){
 
 function filterRows(rows, fil){
   return rows.filter(r=>{
-    if(fil.prod !== "전체" && r.prod !== fil.prod) return false;
+    if(fil.prod.length && !fil.prod.includes(r.prod)) return false;
     if(fil.skip !== "전체"){
       const isNs = r.variant.startsWith("논스킵");
       const isSk = r.variant === "스킵";
@@ -904,11 +916,40 @@ function filterRows(rows, fil){
   });
 }
 
+// skip·sec(단일 select)만 활성 표시 처리. cat·prod(다중)은 msRefresh에서 처리.
 function updateSelActive(prefix){
-  ["cat","prod","skip","sec"].forEach(k=>{
+  ["skip","sec"].forEach(k=>{
     const el = document.getElementById(prefix+"_"+k);
-    if(!el) return;
-    el.classList.toggle("active", el.value !== "전체");
+    if(el) el.classList.toggle("active", el.value !== "전체");
+  });
+}
+
+/* 체크박스 다중 선택 위젯 */
+function closeAllPanels(){ document.querySelectorAll(".ms-panel").forEach(p=>p.classList.add("hidden")); }
+document.addEventListener("click", closeAllPanels);
+function msLabel(sel){ return sel.length===0 ? "전체" : sel.length===1 ? sel[0] : sel.length+"개 선택"; }
+function msRefresh(rootId, sel){
+  const root = document.getElementById(rootId);
+  root.querySelector(".ms-btn").textContent = msLabel(sel);
+  root.classList.toggle("active", sel.length>0);
+}
+// sel 배열을 in-place로 갱신 (fil의 배열 참조 유지)
+function fillMulti(rootId, options, sel, onChange){
+  const root = document.getElementById(rootId);
+  const btn = root.querySelector(".ms-btn");
+  const panel = root.querySelector(".ms-panel");
+  panel.innerHTML = options.map(o=>
+    `<label class="ms-opt"><input type="checkbox" value="${escapeHTML(o)}"${sel.includes(o)?" checked":""}>${escapeHTML(o)}</label>`).join("");
+  msRefresh(rootId, sel);
+  btn.onclick = e=>{ e.stopPropagation(); const open = panel.classList.contains("hidden"); closeAllPanels(); if(open) panel.classList.remove("hidden"); };
+  panel.onclick = e=> e.stopPropagation();
+  panel.querySelectorAll("input").forEach(cb=>{
+    cb.onchange = ()=>{
+      const i = sel.indexOf(cb.value);
+      if(cb.checked){ if(i<0) sel.push(cb.value); } else if(i>=0) sel.splice(i,1);
+      msRefresh(rootId, sel);
+      onChange();
+    };
   });
 }
 
@@ -927,34 +968,32 @@ function applyKboFilters(){
 }
 
 function buildGroupFilters(res, prefix, fil, rows, orderList, applyFn, barId){
-  // 업종 옵션
-  const catSel = document.getElementById(prefix+"_cat");
-  catSel.innerHTML = '<option value="전체">전체</option>'
-    + (res.matrix.cats||[]).map(c=>`<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join("");
-  catSel.value = fil.cat;
+  // 업종 다중 선택
+  fillMulti(prefix+"_cat", (res.matrix.cats||[]), fil.cat, applyFn);
 
-  // 상품 옵션 (해당 그룹 상품만)
+  // 상품 다중 선택 (해당 그룹 상품만)
   const prodsInData = orderList.filter(p=>rows.some(r=>r.prod===p));
-  const prodSel = document.getElementById(prefix+"_prod");
-  prodSel.innerHTML = '<option value="전체">전체</option>'
-    + prodsInData.map(p=>`<option value="${escapeHTML(p)}">${escapeHTML(p)}</option>`).join("");
-  prodSel.value = fil.prod;
+  fillMulti(prefix+"_prod", prodsInData, fil.prod, applyFn);
 
-  // 소재 길이 옵션
+  // 소재 길이 옵션 (단일 select 유지)
   const secs = [...new Set(rows.flatMap(r=>{ const m=r.variant.match(/(\d+)초/); return m?[m[1]+"초"]:[]; }))].sort((a,b)=>parseInt(a)-parseInt(b));
   const secSel = document.getElementById(prefix+"_sec");
   secSel.innerHTML = '<option value="전체">전체</option>'
     + secs.map(s=>`<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`).join("");
   secSel.value = fil.sec;
 
-  // 이벤트
-  document.getElementById(prefix+"_cat").onchange = e=>{ fil.cat=e.target.value; applyFn(); };
-  document.getElementById(prefix+"_prod").onchange = e=>{ fil.prod=e.target.value; applyFn(); };
+  // 이벤트 (skip·sec은 단일 select)
   document.getElementById(prefix+"_skip").onchange = e=>{ fil.skip=e.target.value; applyFn(); };
   document.getElementById(prefix+"_sec").onchange = e=>{ fil.sec=e.target.value; applyFn(); };
   document.getElementById(prefix+"_reset").onclick = ()=>{
-    fil.cat="전체"; fil.prod="전체"; fil.skip="전체"; fil.sec="전체";
-    ["cat","prod","skip","sec"].forEach(k=>{ document.getElementById(prefix+"_"+k).value="전체"; });
+    fil.cat.length=0; fil.prod.length=0; fil.skip="전체"; fil.sec="전체";
+    ["cat","prod"].forEach(k=>{
+      const root=document.getElementById(prefix+"_"+k);
+      root.querySelectorAll("input").forEach(cb=>cb.checked=false);
+      msRefresh(prefix+"_"+k, k==="cat"?fil.cat:fil.prod);
+    });
+    document.getElementById(prefix+"_skip").value="전체";
+    document.getElementById(prefix+"_sec").value="전체";
     applyFn();
   };
   updateSelActive(prefix);
@@ -971,9 +1010,9 @@ function renderResult(res){
   LAST_RESULT = res;
   GEN_MAT_MAP = buildMatMap(res.matrix.gen);
   KBO_MAT_MAP = buildMatMap(res.matrix.kbo);
-  // 필터 초기화
-  Object.assign(FIL_GEN, {cat:"전체", prod:"전체", skip:"전체", sec:"전체"});
-  Object.assign(FIL_KBO, {cat:"전체", prod:"전체", skip:"전체", sec:"전체"});
+  // 필터 초기화 (cat·prod은 새 빈 배열)
+  Object.assign(FIL_GEN, {cat:[], prod:[], skip:"전체", sec:"전체"});
+  Object.assign(FIL_KBO, {cat:[], prod:[], skip:"전체", sec:"전체"});
   renderTable(document.getElementById("tgen"), filterRows(res.gen, FIL_GEN), true, GEN_MAT_MAP, FIL_GEN);
   renderDeviceTable("dgen","dgenwrap", res.devGen);
   renderTable(document.getElementById("tkbo"), filterRows(res.kbo, FIL_KBO), true, KBO_MAT_MAP, FIL_KBO);
@@ -1162,14 +1201,26 @@ function buildPublicHTML(processed){
   .mtab{font-size:13px;font-weight:600;padding:9px 16px;border:1px solid var(--line);border-bottom:none;
     border-radius:9px 9px 0 0;background:var(--panel2);color:var(--text2);cursor:pointer;margin-bottom:-1px;transition:.12s;}
   .mtab:hover{background:var(--line);}
-  .mtab.active{background:var(--panel);color:var(--accent);border-color:var(--line);border-bottom:1px solid var(--panel);}`;
+  .mtab.active{background:var(--panel);color:var(--accent);border-color:var(--line);border-bottom:1px solid var(--panel);}
+  .ms{position:relative;min-width:110px;max-width:180px;}
+  .ms-btn{width:100%;text-align:left;font-size:13px;padding:7px 28px 7px 10px;border-radius:8px;
+    border:1px solid var(--line2);color:var(--text);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239098A3'/%3E%3C/svg%3E") no-repeat right 10px center;}
+  .ms.active .ms-btn{border-color:var(--gen);color:var(--gen);font-weight:600;background-color:var(--gen-soft);}
+  .group.kbo .ms.active .ms-btn{border-color:var(--kbo);color:var(--kbo);background-color:var(--kbo-soft);}
+  .ms-panel{position:absolute;z-index:50;top:calc(100% + 4px);left:0;min-width:100%;max-height:240px;overflow:auto;
+    background:var(--panel);border:1px solid var(--line2);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);padding:6px;}
+  .ms-panel.hidden{display:none;}
+  .ms-opt{display:flex;align-items:center;gap:7px;padding:5px 8px;font-size:13px;border-radius:6px;cursor:pointer;white-space:nowrap;}
+  .ms-opt:hover{background:var(--panel2);}
+  .ms-opt input{cursor:pointer;margin:0;}`;
 
   function filterbarHTML(prefix){
     return `<section class="filterbar">
         <span class="filabel">필터</span>
         <div class="filterset">
           <div class="filgroup"><label class="fillabel">상품</label>
-            <select class="filsel" id="${prefix}_prod"><option value="전체">전체</option></select></div>
+            <div class="ms" id="${prefix}_prod"><button type="button" class="ms-btn">전체</button><div class="ms-panel hidden"></div></div></div>
           <div class="filgroup"><label class="fillabel">스킵 구분</label>
             <select class="filsel" id="${prefix}_skip">
               <option value="전체">전체</option><option value="논스킵">논스킵</option><option value="스킵">스킵</option>
@@ -1177,30 +1228,35 @@ function buildPublicHTML(processed){
           <div class="filgroup"><label class="fillabel">소재 길이</label>
             <select class="filsel" id="${prefix}_sec"><option value="전체">전체</option></select></div>
           <div class="filgroup"><label class="fillabel">업종</label>
-            <select class="filsel" id="${prefix}_cat"><option value="전체">전체</option></select></div>
+            <div class="ms" id="${prefix}_cat"><button type="button" class="ms-btn">전체</button><div class="ms-panel hidden"></div></div></div>
           <button id="${prefix}_reset" class="filresetbtn">↺ 초기화</button>
         </div>
       </section>`;
   }
 
   const pubJS = `const D=${JSON.stringify(pubData)};
-const FG={cat:"전체",prod:"전체",skip:"전체",sec:"전체"};
-const FK={cat:"전체",prod:"전체",skip:"전체",sec:"전체"};
+const FG={cat:[],prod:[],skip:"전체",sec:"전체"};
+const FK={cat:[],prod:[],skip:"전체",sec:"전체"};
 let AI=0;
 function cur(){return D.months[AI];}
 function vtrColor(v){if(v===null)return null;const r=["#FBE3E3","#FCEBD2","#DEF3E8","#C3EAD7","#A6E1C5"],f=["#A12626","#8A5410","#1B6E52","#13694A","#0C5238"];let i=v<50?0:v<80?1:v<90?2:v<95?3:4;return{bg:r[i],fg:f[i]};}
 function ctrColor(v){const r=["#E9F0FB","#DAE7F8","#C2D8F2","#A6C6EC","#88B3E5"],f=["#2B5BA8","#27559C","#1F4C8E","#1A4380","#123569"];let i=Math.min(Math.floor(Math.min(v/0.5,1)*5),4);return{bg:r[i],fg:f[i]};}
 function variantLabel(v){if(v==="-")return'<span class="vtag">–</span>';if(v==="구분 미표기")return'<span class="vtag">구분 미표기</span>';if(v==="논스킵 (초수 미표기)")return'<span class="vtag">논스킵 (초수 미표기)</span>';return v;}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-function filterRows(rows,fil){return rows.filter(r=>{if(fil.prod!=="전체"&&r.prod!==fil.prod)return false;if(fil.skip!=="전체"){const ns=r.variant.startsWith("논스킵"),sk=r.variant==="스킵";if(fil.skip==="논스킵"&&!ns)return false;if(fil.skip==="스킵"&&!sk)return false;}if(fil.sec!=="전체"&&!r.variant.includes(fil.sec))return false;return true;});}
-function updActive(px){["cat","prod","skip","sec"].forEach(k=>{const el=document.getElementById(px+"_"+k);if(el)el.classList.toggle("active",el.value!=="전체");});}
+function filterRows(rows,fil){return rows.filter(r=>{if(fil.prod.length&&!fil.prod.includes(r.prod))return false;if(fil.skip!=="전체"){const ns=r.variant.startsWith("논스킵"),sk=r.variant==="스킵";if(fil.skip==="논스킵"&&!ns)return false;if(fil.skip==="스킵"&&!sk)return false;}if(fil.sec!=="전체"&&!r.variant.includes(fil.sec))return false;return true;});}
+function updActive(px){["skip","sec"].forEach(k=>{const el=document.getElementById(px+"_"+k);if(el)el.classList.toggle("active",el.value!=="전체");});}
+function closeAllPanels(){document.querySelectorAll(".ms-panel").forEach(p=>p.classList.add("hidden"));}
+document.addEventListener("click",closeAllPanels);
+function msLabel(sel){return sel.length===0?"전체":sel.length===1?sel[0]:sel.length+"개 선택";}
+function msRefresh(id,sel){const root=document.getElementById(id);root.querySelector(".ms-btn").textContent=msLabel(sel);root.classList.toggle("active",sel.length>0);}
+function fillMulti(id,options,sel,onChange){const root=document.getElementById(id),btn=root.querySelector(".ms-btn"),panel=root.querySelector(".ms-panel");panel.innerHTML=options.map(o=>'<label class="ms-opt"><input type="checkbox" value="'+esc(o)+'"'+(sel.includes(o)?" checked":"")+'>'+esc(o)+'</label>').join("");msRefresh(id,sel);btn.onclick=e=>{e.stopPropagation();const open=panel.classList.contains("hidden");closeAllPanels();if(open)panel.classList.remove("hidden");};panel.onclick=e=>e.stopPropagation();panel.querySelectorAll("input").forEach(cb=>{cb.onchange=()=>{const i=sel.indexOf(cb.value);if(cb.checked){if(i<0)sel.push(cb.value);}else if(i>=0)sel.splice(i,1);msRefresh(id,sel);onChange();};});}
 function renderTable(el,rows,matMap,fil){
-  fil=fil||{cat:"전체"};
+  fil=fil||{cat:[]};
   const wrap=el.closest(".tblwrap");
   if(!rows.length){if(wrap)wrap.style.display="none";return;}
   if(wrap)wrap.style.display="";
-  const showCat=!!(matMap&&fil.cat!=="전체"),cl=showCat?esc(fil.cat):"";
-  const catHdr=showCat?'<th class="num cathdr" title="'+cl+' VTR">'+cl+' VTR</th><th class="num cathdr" title="'+cl+' CTR">'+cl+' CTR</th>':"";
+  const showCats=(matMap&&Array.isArray(fil.cat)&&fil.cat.length)?fil.cat:[];
+  const catHdr=showCats.map(c=>{const cl=esc(c);return '<th class="num cathdr" title="'+cl+' VTR">'+cl+' VTR</th><th class="num cathdr" title="'+cl+' CTR">'+cl+' CTR</th>';}).join("");
   let h='<thead><tr><th>상품</th><th>구분</th><th class="num">VTR</th><th class="num">CTR</th>'+catHdr+'</tr></thead><tbody>';
   let prev=null;
   for(const r of rows){
@@ -1208,7 +1264,7 @@ function renderTable(el,rows,matMap,fil){
     let vc;if(r.vtr===null)vc='<span class="vtag">N/A</span>';else{const c=vtrColor(r.vtr);vc='<span class="chip" style="background:'+c.bg+';color:'+c.fg+';">'+r.vtr.toFixed(2)+'%</span>';}
     let ccl;if(r.ctr===null)ccl='<span class="vtag">N/A</span>';else{const cc=ctrColor(r.ctr);ccl='<span class="chip" style="background:'+cc.bg+';color:'+cc.fg+';">'+r.ctr.toFixed(3)+'%</span>';}
     let cat="";
-    if(showCat){const key=r.prod+"||"+r.variant,c=matMap[key]&&matMap[key][fil.cat];if(c){const dm=c.thin?"opacity:.5;":"",cv=(c.vtr!=null)?vtrColor(c.vtr):null;const vtd=cv?'<td class="num catcell"><span class="chip" style="background:'+cv.bg+';color:'+cv.fg+';'+dm+'">'+c.vtr.toFixed(2)+'%</span></td>':'<td class="num catcell"><span class="vtag">N/A</span></td>';let ctd;if(r.ctr===null){ctd='<td class="num catcell"><span class="vtag">N/A</span></td>';}else{const c2=ctrColor(c.ctr);ctd='<td class="num catcell"><span class="chip" style="background:'+c2.bg+';color:'+c2.fg+';'+dm+'">'+c.ctr.toFixed(3)+'%</span></td>';}cat=vtd+ctd;}else cat='<td class="num catcell"><span class="vtag">–</span></td><td class="num catcell"><span class="vtag">–</span></td>';}
+    for(const ct of showCats){const key=r.prod+"||"+r.variant,c=matMap[key]&&matMap[key][ct];if(c){const dm=c.thin?"opacity:.5;":"",cv=(c.vtr!=null)?vtrColor(c.vtr):null;const vtd=cv?'<td class="num catcell"><span class="chip" style="background:'+cv.bg+';color:'+cv.fg+';'+dm+'">'+c.vtr.toFixed(2)+'%</span></td>':'<td class="num catcell"><span class="vtag">N/A</span></td>';let ctd;if(r.ctr===null){ctd='<td class="num catcell"><span class="vtag">N/A</span></td>';}else{const c2=ctrColor(c.ctr);ctd='<td class="num catcell"><span class="chip" style="background:'+c2.bg+';color:'+c2.fg+';'+dm+'">'+c.ctr.toFixed(3)+'%</span></td>';}cat+=vtd+ctd;}else cat+='<td class="num catcell"><span class="vtag">–</span></td><td class="num catcell"><span class="vtag">–</span></td>';}
     h+='<tr><td class="pname">'+(sn?r.prod:"")+'</td><td>'+variantLabel(r.variant)+'</td><td class="num">'+vc+'</td><td class="num">'+ccl+'</td>'+cat+'</tr>';
   }
   el.innerHTML=h+"</tbody>";
@@ -1216,22 +1272,20 @@ function renderTable(el,rows,matMap,fil){
 function devTbody(rows){let h='<thead><tr><th>디바이스</th><th class="num">노출 비중</th><th class="num">VTR</th><th class="num">CTR</th></tr></thead><tbody>';for(const r of rows){const vc=vtrColor(r.vtr),cc=ctrColor(r.ctr);h+='<tr><td class="pname">'+r.device+'</td><td class="num"><span class="sharebar" style="--w:'+Math.round(r.share)+'%;">'+r.share.toFixed(1)+'%</span></td><td class="num"><span class="chip" style="background:'+vc.bg+';color:'+vc.fg+';">'+r.vtr.toFixed(2)+'%</span></td><td class="num"><span class="chip" style="background:'+cc.bg+';color:'+cc.fg+';">'+r.ctr.toFixed(3)+'%</span></td></tr>';}return h+"</tbody>";}
 function renderDev(elId,wrapId,rows){const el=document.getElementById(elId),wp=document.getElementById(wrapId);if(!rows||!rows.length){if(wp)wp.style.display="none";return;}if(wp)wp.style.display="";el.innerHTML=devTbody(rows);}
 function buildGroupFil(px,fil,rows,order,applyFn){
-  const cs=document.getElementById(px+"_cat");cs.innerHTML='<option value="전체">전체</option>'+(cur().matCats||[]).map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join("");cs.value=fil.cat;
-  const ps=document.getElementById(px+"_prod"),pd=order.filter(p=>rows.some(r=>r.prod===p));ps.innerHTML='<option value="전체">전체</option>'+pd.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join("");ps.value=fil.prod;
+  fillMulti(px+"_cat",(cur().matCats||[]),fil.cat,applyFn);
+  const pd=order.filter(p=>rows.some(r=>r.prod===p));fillMulti(px+"_prod",pd,fil.prod,applyFn);
   const sc=[...new Set(rows.flatMap(r=>{const m=r.variant.match(/(\\d+)초/);return m?[m[1]+"초"]:[];}))].sort((a,b)=>parseInt(a)-parseInt(b));const ss=document.getElementById(px+"_sec");ss.innerHTML='<option value="전체">전체</option>'+sc.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join("");ss.value=fil.sec;
-  document.getElementById(px+"_cat").onchange=e=>{fil.cat=e.target.value;applyFn();};
-  document.getElementById(px+"_prod").onchange=e=>{fil.prod=e.target.value;applyFn();};
   document.getElementById(px+"_skip").onchange=e=>{fil.skip=e.target.value;applyFn();};
   document.getElementById(px+"_sec").onchange=e=>{fil.sec=e.target.value;applyFn();};
-  document.getElementById(px+"_reset").onclick=()=>{fil.cat="전체";fil.prod="전체";fil.skip="전체";fil.sec="전체";["cat","prod","skip","sec"].forEach(k=>{document.getElementById(px+"_"+k).value="전체";});applyFn();};
+  document.getElementById(px+"_reset").onclick=()=>{fil.cat.length=0;fil.prod.length=0;fil.skip="전체";fil.sec="전체";["cat","prod"].forEach(k=>{const root=document.getElementById(px+"_"+k);root.querySelectorAll("input").forEach(cb=>cb.checked=false);msRefresh(px+"_"+k,k==="cat"?fil.cat:fil.prod);});document.getElementById(px+"_skip").value="전체";document.getElementById(px+"_sec").value="전체";applyFn();};
   updActive(px);
 }
 function applyG(){const M=cur();updActive("filg");renderTable(document.getElementById("tgen"),filterRows(M.gen,FG),M.genMatMap,FG);renderDev("dgen","dgenwrap",M.devGen);}
 function applyK(){const M=cur();updActive("filk");renderTable(document.getElementById("tkbo"),filterRows(M.kbo,FK),M.kboMatMap,FK);renderDev("dkbo","dkbowrap",M.devKbo);}
 function renderAll(){
   const M=cur();
-  FG.cat="전체";FG.prod="전체";FG.skip="전체";FG.sec="전체";
-  FK.cat="전체";FK.prod="전체";FK.skip="전체";FK.sec="전체";
+  FG.cat=[];FG.prod=[];FG.skip="전체";FG.sec="전체";
+  FK.cat=[];FK.prod=[];FK.skip="전체";FK.sec="전체";
   buildGroupFil("filg",FG,M.gen,D.orderGen,applyG);
   buildGroupFil("filk",FK,M.kbo,D.orderKbo,applyK);
   renderTable(document.getElementById("tgen"),M.gen,M.genMatMap,FG);
